@@ -1,0 +1,269 @@
+# ============================================================================
+# 🐳 DOCKER COMPOSE - MICROSERVIÇO AUDITORIA & COMPLIANCE
+# ============================================================================
+#
+# Orquestração completa do microserviço de auditoria com:
+# - MySQL 8.4 (banco de auditoria)
+# - Redis 7 (cache distribuído)
+# - Kafka (event streaming)
+# - Prometheus (métricas)
+# - Grafana (dashboards)
+# - Jaeger (distributed tracing)
+#
+# Execução:
+# docker-compose up -d          # Subir todos os serviços
+# docker-compose logs -f        # Ver logs em tempo real
+# docker-compose down           # Parar todos os serviços
+#
+# @author Sistema de Migração R2DBC
+# @version 1.0
+# @since 2024
+# ============================================================================
+
+services:
+  # === MICROSERVIÇO DE AUDITORIA ===
+  auditoria-service:
+    build:
+      context: .
+      dockerfile: Dockerfile
+      target: runtime
+    image: conexaodesorte/auditoria:latest
+    container_name: auditoria-service
+    restart: unless-stopped
+    ports:
+      - "8085:8085"
+    environment:
+      # Database
+      - DB_HOST=auditoria-mysql
+      - DB_PORT=3306
+      - DB_NAME=conexao_sorte_audit
+      - DB_USERNAME=audit_user
+      - DB_PASSWORD=audit_pass123!
+      
+      # Redis
+      - REDIS_HOST=auditoria-redis
+      - REDIS_PORT=6379
+      - REDIS_PASSWORD=redis_pass123!
+      - REDIS_DB=5
+      
+      # Kafka
+      - KAFKA_BOOTSTRAP_SERVERS=auditoria-kafka:9092
+      - KAFKA_GROUP_ID=auditoria-service
+      
+      # JWT
+      - JWT_JWKS_URI=http://auth-service:8081/.well-known/jwks.json
+      - JWT_ISSUER=https://auth.conexaodesorte.com
+      
+      # Features
+      - FEATURE_AUDITORIA_MS=true
+      - FEATURE_EVENT_STREAMING=true
+      - FEATURE_CACHE_ENABLED=true
+      
+      # Observabilidade
+      - MANAGEMENT_ENDPOINTS_WEB_EXPOSURE_INCLUDE=health,info,prometheus,metrics
+      - MANAGEMENT_METRICS_EXPORT_PROMETHEUS_ENABLED=true
+      - MANAGEMENT_TRACING_SAMPLING_PROBABILITY=1.0
+      
+      # Sistema
+      - SPRING_PROFILES_ACTIVE=docker
+      - TZ=America/Sao_Paulo
+      
+    depends_on:
+      auditoria-mysql:
+        condition: service_healthy
+      auditoria-redis:
+        condition: service_healthy
+      auditoria-kafka:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8085/actuator/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 40s
+    networks:
+      - auditoria-network
+    volumes:
+      - auditoria-logs:/app/logs
+      - auditoria-tmp:/tmp
+
+  # === MYSQL 8.4 ===
+  auditoria-mysql:
+    image: mysql:8.4
+    container_name: auditoria-mysql
+    restart: unless-stopped
+    ports:
+      - "3310:3306"
+    environment:
+      - MYSQL_ROOT_PASSWORD=root_pass123!
+      - MYSQL_DATABASE=conexao_sorte_audit
+      - MYSQL_USER=audit_user
+      - MYSQL_PASSWORD=audit_pass123!
+      - TZ=America/Sao_Paulo
+    command: >
+      --character-set-server=utf8mb4
+      --collation-server=utf8mb4_unicode_ci
+      --default-time-zone='-03:00'
+      --innodb-buffer-pool-size=256M
+      --innodb-log-file-size=64M
+      --max-connections=200
+      --general-log=1
+      --general-log-file=/var/lib/mysql/general.log
+      --slow-query-log=1
+      --slow-query-log-file=/var/lib/mysql/slow-query.log
+      --long-query-time=2
+    volumes:
+      - auditoria-mysql-data:/var/lib/mysql
+      - auditoria-mysql-logs:/var/log/mysql
+      - ./docker/mysql/init.sql:/docker-entrypoint-initdb.d/init.sql:ro
+    healthcheck:
+      test: ["CMD", "mysqladmin", "ping", "-h", "localhost"]
+      interval: 30s
+      timeout: 10s
+      retries: 5
+      start_period: 30s
+    networks:
+      - auditoria-network
+
+  # === REDIS 7 ===
+  auditoria-redis:
+    image: redis:7-alpine
+    container_name: auditoria-redis
+    restart: unless-stopped
+    ports:
+      - "6382:6379"
+    command: >
+      redis-server 
+      --requirepass redis_pass123!
+      --maxmemory 256mb
+      --maxmemory-policy allkeys-lru
+      --save 900 1
+      --save 300 10
+      --save 60 10000
+      --appendonly yes
+      --appendfsync everysec
+    volumes:
+      - auditoria-redis-data:/data
+    healthcheck:
+      test: ["CMD", "redis-cli", "--raw", "incr", "ping"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 20s
+    networks:
+      - auditoria-network
+
+  # === KAFKA ===
+  auditoria-zookeeper:
+    image: confluentinc/cp-zookeeper:7.7.0
+    container_name: auditoria-zookeeper
+    restart: unless-stopped
+    environment:
+      - ZOOKEEPER_CLIENT_PORT=2181
+      - ZOOKEEPER_TICK_TIME=2000
+    volumes:
+      - auditoria-zookeeper-data:/var/lib/zookeeper/data
+      - auditoria-zookeeper-logs:/var/lib/zookeeper/log
+    networks:
+      - auditoria-network
+
+  auditoria-kafka:
+    image: confluentinc/cp-kafka:7.7.0
+    container_name: auditoria-kafka
+    restart: unless-stopped
+    ports:
+      - "9094:9094"
+    environment:
+      - KAFKA_BROKER_ID=1
+      - KAFKA_ZOOKEEPER_CONNECT=auditoria-zookeeper:2181
+      - KAFKA_LISTENER_SECURITY_PROTOCOL_MAP=PLAINTEXT:PLAINTEXT,PLAINTEXT_HOST:PLAINTEXT
+      - KAFKA_ADVERTISED_LISTENERS=PLAINTEXT://auditoria-kafka:9092,PLAINTEXT_HOST://localhost:9094
+      - KAFKA_INTER_BROKER_LISTENER_NAME=PLAINTEXT
+      - KAFKA_OFFSETS_TOPIC_REPLICATION_FACTOR=1
+      - KAFKA_TRANSACTION_STATE_LOG_MIN_ISR=1
+      - KAFKA_TRANSACTION_STATE_LOG_REPLICATION_FACTOR=1
+      - KAFKA_AUTO_CREATE_TOPICS_ENABLE=true
+      - KAFKA_NUM_PARTITIONS=3
+      - KAFKA_LOG_RETENTION_HOURS=168
+    depends_on:
+      - auditoria-zookeeper
+    volumes:
+      - auditoria-kafka-data:/var/lib/kafka/data
+    healthcheck:
+      test: ["CMD", "kafka-broker-api-versions", "--bootstrap-server", "localhost:9092"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 40s
+    networks:
+      - auditoria-network
+
+  # === PROMETHEUS ===
+  auditoria-prometheus:
+    image: prom/prometheus:latest
+    container_name: auditoria-prometheus
+    restart: unless-stopped
+    ports:
+      - "9093:9090"
+    command:
+      - '--config.file=/etc/prometheus/prometheus.yml'
+      - '--storage.tsdb.path=/prometheus'
+      - '--web.console.libraries=/etc/prometheus/console_libraries'
+      - '--web.console.templates=/etc/prometheus/consoles'
+      - '--storage.tsdb.retention.time=15d'
+      - '--web.enable-lifecycle'
+      - '--web.enable-admin-api'
+    volumes:
+      - ./docker/prometheus/prometheus.yml:/etc/prometheus/prometheus.yml:ro
+      - auditoria-prometheus-data:/prometheus
+    networks:
+      - auditoria-network
+
+  # === GRAFANA ===
+  auditoria-grafana:
+    image: grafana/grafana:latest
+    container_name: auditoria-grafana
+    restart: unless-stopped
+    ports:
+      - "3005:3000"
+    environment:
+      - GF_SECURITY_ADMIN_PASSWORD=admin123!
+      - GF_USERS_ALLOW_SIGN_UP=false
+      - GF_INSTALL_PLUGINS=grafana-clock-panel,grafana-simple-json-datasource
+    volumes:
+      - auditoria-grafana-data:/var/lib/grafana
+      - ./docker/grafana/dashboards:/etc/grafana/provisioning/dashboards:ro
+      - ./docker/grafana/datasources:/etc/grafana/provisioning/datasources:ro
+    depends_on:
+      - auditoria-prometheus
+    networks:
+      - auditoria-network
+
+# === VOLUMES ===
+volumes:
+  auditoria-mysql-data:
+    driver: local
+  auditoria-mysql-logs:
+    driver: local
+  auditoria-redis-data:
+    driver: local
+  auditoria-zookeeper-data:
+    driver: local
+  auditoria-zookeeper-logs:
+    driver: local
+  auditoria-kafka-data:
+    driver: local
+  auditoria-prometheus-data:
+    driver: local
+  auditoria-grafana-data:
+    driver: local
+  auditoria-logs:
+    driver: local
+  auditoria-tmp:
+    driver: local
+
+# === NETWORKS ===
+networks:
+  auditoria-network:
+    driver: bridge
+    name: auditoria-network
