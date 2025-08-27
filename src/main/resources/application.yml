@@ -10,7 +10,11 @@ spring:
     name: auditoria-compliance
     
   profiles:
-    active: ${SPRING_PROFILES_ACTIVE:dev}
+    default: prod
+    # Profiles são sobrescritos via SPRING_PROFILES_ACTIVE no deployment
+  
+  main:
+    allow-bean-definition-overriding: true
   
   # Configtree secret management
   config:
@@ -304,7 +308,7 @@ spring:
 server:
   port: 8085
   ssl:
-    enabled: true
+    enabled: ${SSL_ENABLED:false}
     
 audit:
   retention:
