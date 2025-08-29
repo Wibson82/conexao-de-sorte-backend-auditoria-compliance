@@ -1,0 +1,27 @@
+spring:
+  r2dbc:
+    url: r2dbc:h2:mem:///auditoria_test;DB_CLOSE_DELAY=-1;MODE=MySQL
+    username: sa
+    password: ""
+    
+  flyway:
+    enabled: false  # Desabilitar Flyway em testes
+    
+  security:
+    oauth2:
+      resourceserver:
+        jwt:
+          jwk-set-uri: http://localhost:8081/.well-known/jwks.json
+          
+audit:
+  capture:
+    enabled: false
+    
+compliance:
+  reports:
+    enabled: false
+    
+logging:
+  level:
+    root: WARN
+    br.tec.facilitaservicos.auditoria: DEBUG

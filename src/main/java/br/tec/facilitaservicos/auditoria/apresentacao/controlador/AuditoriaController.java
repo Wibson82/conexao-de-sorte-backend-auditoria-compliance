@@ -64,7 +64,7 @@ public class AuditoriaController {
      * Consulta eventos de auditoria com filtros
      */
     @GetMapping("/eventos")
-    @PreAuthorize("hasRole('AUDITOR') or hasRole('ADMIN')")
+    @PreAuthorize("hasAuthority('SCOPE_audit_read') or hasAuthority('SCOPE_admin')")
     @Operation(summary = "Consultar eventos", description = "Consulta eventos de auditoria com filtros avançados")
     public Flux<EventoAuditoriaDto> consultarEventos(
             @RequestParam(required = false) String tipoEvento,
@@ -87,7 +87,7 @@ public class AuditoriaController {
      * Obtém trilha completa de auditoria de uma entidade
      */
     @GetMapping("/trilha/{entidade}/{id}")
-    @PreAuthorize("hasRole('AUDITOR') or hasRole('ADMIN')")
+    @PreAuthorize("hasAuthority('SCOPE_audit_read') or hasAuthority('SCOPE_admin')")
     @Operation(summary = "Trilha de entidade", description = "Obtém trilha completa de auditoria de uma entidade específica")
     public Flux<EventoAuditoriaDto> obterTrilhaEntidade(
             @PathVariable String entidade,
@@ -101,7 +101,7 @@ public class AuditoriaController {
      * Verifica integridade de um evento específico
      */
     @GetMapping("/integridade/{eventoId}")
-    @PreAuthorize("hasRole('AUDITOR') or hasRole('ADMIN')")
+    @PreAuthorize("hasAuthority('SCOPE_audit_read') or hasAuthority('SCOPE_admin')")
     @Operation(summary = "Verificar integridade", description = "Verifica a integridade de um evento específico")
     public Mono<ResponseEntity<Map<String, Object>>> verificarIntegridade(
             @PathVariable String eventoId,
@@ -116,7 +116,7 @@ public class AuditoriaController {
      * Gera relatório de compliance
      */
     @GetMapping("/relatorio/compliance")
-    @PreAuthorize("hasRole('COMPLIANCE') or hasRole('ADMIN')")
+    @PreAuthorize("hasAuthority('SCOPE_compliance') or hasAuthority('SCOPE_admin')")
     @Operation(summary = "Relatório compliance", description = "Gera relatório de compliance para período específico")
     public Mono<ResponseEntity<RelatorioComplianceDto>> gerarRelatorioCompliance(
             @RequestParam LocalDateTime dataInicio,
@@ -132,7 +132,7 @@ public class AuditoriaController {
      * Verifica assinatura digital de um evento
      */
     @PostMapping("/verificar-assinatura")
-    @PreAuthorize("hasRole('AUDITOR') or hasRole('ADMIN')")
+    @PreAuthorize("hasAuthority('SCOPE_audit_read') or hasAuthority('SCOPE_admin')")
     @Operation(summary = "Verificar assinatura", description = "Verifica assinatura digital de um evento")
     public Mono<ResponseEntity<Map<String, Object>>> verificarAssinatura(
             @Valid @RequestBody Map<String, Object> request,
@@ -154,7 +154,7 @@ public class AuditoriaController {
      * Obtém métricas de auditoria
      */
     @GetMapping("/metricas")
-    @PreAuthorize("hasRole('AUDITOR') or hasRole('ADMIN')")
+    @PreAuthorize("hasAuthority('SCOPE_audit_read') or hasAuthority('SCOPE_admin')")
     @Operation(summary = "Métricas auditoria", description = "Obtém métricas agregadas de auditoria")
     public Mono<ResponseEntity<Map<String, Object>>> obterMetricas(
             @RequestParam(required = false) String periodo,
@@ -169,7 +169,7 @@ public class AuditoriaController {
      * Obtém estatísticas de integridade
      */
     @GetMapping("/estatisticas/integridade")
-    @PreAuthorize("hasRole('AUDITOR') or hasRole('ADMIN')")
+    @PreAuthorize("hasAuthority('SCOPE_audit_read') or hasAuthority('SCOPE_admin')")
     @Operation(summary = "Estatísticas integridade", description = "Obtém estatísticas de integridade do sistema")
     public Mono<ResponseEntity<Map<String, Object>>> obterEstatisticasIntegridade(
             Authentication authentication) {
@@ -182,7 +182,7 @@ public class AuditoriaController {
      * Valida cadeia de hashes
      */
     @PostMapping("/validar-cadeia")
-    @PreAuthorize("hasRole('AUDITOR') or hasRole('ADMIN')")
+    @PreAuthorize("hasAuthority('SCOPE_audit_read') or hasAuthority('SCOPE_admin')")
     @Operation(summary = "Validar cadeia", description = "Valida a cadeia completa de hashes de eventos")
     public Mono<ResponseEntity<Map<String, Object>>> validarCadeiaHashes(
             @RequestParam(required = false) LocalDateTime dataInicio,
@@ -202,7 +202,7 @@ public class AuditoriaController {
      * Obtém eventos por correlationId
      */
     @GetMapping("/correlacao/{correlationId}")
-    @PreAuthorize("hasRole('AUDITOR') or hasRole('ADMIN')")
+    @PreAuthorize("hasAuthority('SCOPE_audit_read') or hasAuthority('SCOPE_admin')")
     @Operation(summary = "Eventos por correlação", description = "Obtém todos os eventos relacionados a um correlationId")
     public Flux<EventoAuditoriaDto> obterEventosPorCorrelacao(
             @PathVariable String correlationId,

@@ -6,6 +6,9 @@
 # ===============================================================================
 
 spring:
+  jackson:
+    time-zone: America/Sao_Paulo
+    locale: pt_BR
   application:
     name: auditoria-compliance
     
@@ -23,31 +26,27 @@ spring:
       - optional:configtree:/mnt/secrets/
       - optional:file:./secrets.properties
       
-  # Database configuration with security focus
-  datasource:
-    url: ${DB_URL:jdbc:mysql://localhost:3306/conexao_sorte_auditoria}
+  # R2DBC Configuration for reactive data access
+  r2dbc:
+    url: ${DB_R2DBC_URL:r2dbc:mysql://localhost:3306/conexao_sorte_auditoria}
     username: ${DB_USERNAME:audit_user}
     password: ${DB_PASSWORD:}  # No default password for security
-    driver-class-name: com.mysql.cj.jdbc.Driver
-    hikari:
-      maximum-pool-size: ${DB_POOL_MAX_SIZE:20}
-      minimum-idle: ${DB_POOL_MIN_IDLE:5}
-      connection-timeout: ${DB_CONNECTION_TIMEOUT:30000}
-      idle-timeout: ${DB_IDLE_TIMEOUT:600000}
-      max-lifetime: ${DB_MAX_LIFETIME:1800000}
-      pool-name: AuditHikariCP
-      
-  # JPA Configuration optimized for audit logs
-  jpa:
-    hibernate:
-      ddl-auto: ${JPA_DDL_AUTO:validate}
-    database-platform: org.hibernate.dialect.MySQL8Dialect
-    show-sql: ${JPA_SHOW_SQL:false}
-    properties:
-      hibernate:
-        jdbc:
-          batch_size: 50  # Batch processing for audit log inserts
-        generate_statistics: false
+    pool:
+      enabled: true
+      initial-size: ${DB_POOL_INITIAL_SIZE:5}
+      max-size: ${DB_POOL_MAX_SIZE:20}
+      max-idle-time: 30m
+      max-acquire-time: 60s
+
+  # Flyway para migrations (usa JDBC)
+  flyway:
+    enabled: true
+    url: ${DB_JDBC_URL:jdbc:mysql://localhost:3306/conexao_sorte_auditoria}
+    user: ${DB_USERNAME:audit_user}
+    password: ${DB_PASSWORD:}
+    locations: classpath:db/migration
+    baseline-on-migrate: true
+    validate-on-migrate: true
         
   # Security JWT for token validation (consumer only)
   security:
@@ -251,7 +250,10 @@ spring:
     activate:
       on-profile: dev
       
-  datasource:
+  r2dbc:
+    url: r2dbc:mysql://localhost:3306/conexao_sorte_auditoria_dev
+    
+  flyway:
     url: jdbc:mysql://localhost:3306/conexao_sorte_auditoria_dev
     
 audit:
@@ -300,9 +302,17 @@ spring:
     activate:
       on-profile: prod
       
-  datasource:
-    url: jdbc:mysql://${DB_HOST}:${DB_PORT:3306}/${DB_NAME:conexao_sorte_auditoria}
+  r2dbc:
+    url: r2dbc:mysql://${DB_HOST}:${DB_PORT:3306}/${DB_NAME:conexao_sorte_auditoria}
     username: ${DB_USERNAME}
+    password: ${DB_PASSWORD}
+    pool:
+      initial-size: 10
+      max-size: 50
+
+  flyway:
+    url: jdbc:mysql://${DB_HOST}:${DB_PORT:3306}/${DB_NAME:conexao_sorte_auditoria}
+    user: ${DB_USERNAME}
     password: ${DB_PASSWORD}
     
 server:
