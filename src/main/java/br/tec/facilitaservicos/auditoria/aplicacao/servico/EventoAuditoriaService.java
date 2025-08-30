@@ -11,7 +11,7 @@ import org.springframework.stereotype.Service;
 import com.fasterxml.jackson.core.JsonProcessingException;
 import com.fasterxml.jackson.databind.ObjectMapper;
 
-import br.tec.facilitaservicos.auditoria.aplicacao.dto.EventoAuditoriaDto;
+import br.tec.facilitaservicos.auditoria.apresentacao.dto.EventoAuditoriaDto;
 import br.tec.facilitaservicos.auditoria.aplicacao.dto.CriarEventoDto;
 import br.tec.facilitaservicos.auditoria.aplicacao.mapper.EventoAuditoriaMapper;
 import br.tec.facilitaservicos.auditoria.dominio.entidade.EventoAuditoriaR2dbc;
