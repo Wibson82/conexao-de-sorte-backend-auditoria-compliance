@@ -202,7 +202,7 @@ JWT_ISSUER=https://auth.conexaodesorte.com
 # Azure Key Vault
 AZURE_KEYVAULT_URI=https://conexao-sorte-kv.vault.azure.net/
 AZURE_CLIENT_ID=your-client-id
-AZURE_CLIENT_SECRET=your-client-secret
+# OIDC-only: não utilizar AZURE_CLIENT_SECRET; use OIDC + Key Vault
 AZURE_TENANT_ID=your-tenant-id
 
 # Features
