@@ -62,7 +62,7 @@ server:
   port: ${SERVER_PORT:8085}
   shutdown: graceful
   servlet:
-    context-path: /api/v1/audit
+    context-path: /rest/v1/audit
   compression:
     enabled: true
   http2:
@@ -179,10 +179,10 @@ rate-limit:
   enabled: ${RATE_LIMIT_ENABLED:true}
   default-requests-per-minute: ${RATE_LIMIT_DEFAULT:30}  # Lower limit for audit service
   endpoints:
-    "/api/v1/audit/logs":
+    "/rest/v1/audit/logs":
       requests-per-minute: ${RATE_LIMIT_AUDIT_LOGS:20}
       burst-capacity: ${RATE_LIMIT_AUDIT_LOGS_BURST:30}
-    "/api/v1/audit/reports":
+    "/rest/v1/audit/reports":
       requests-per-minute: ${RATE_LIMIT_AUDIT_REPORTS:10}
       burst-capacity: ${RATE_LIMIT_AUDIT_REPORTS_BURST:15}
 
@@ -344,3 +344,31 @@ logging:
     
 rate-limit:
   default-requests-per-minute: 20  # More restrictive in production
+
+# Resilience4j Configuration
+resilience4j:
+  circuitbreaker:
+    instances:
+      database:
+        sliding-window-size: 100
+        minimum-number-of-calls: 10
+        failure-rate-threshold: 50
+        wait-duration-in-open-state: 30s
+        permitted-number-of-calls-in-half-open-state: 5
+      external-service:
+        sliding-window-size: 50
+        minimum-number-of-calls: 5
+        failure-rate-threshold: 60
+        wait-duration-in-open-state: 20s
+        permitted-number-of-calls-in-half-open-state: 3
+  
+  retry:
+    instances:
+      database:
+        max-attempts: 3
+        wait-duration: 500ms
+        exponential-backoff-multiplier: 2.0
+        randomized-wait-factor: 0.1
+      external-service:
+        max-attempts: 2
+        wait-duration: 1s
