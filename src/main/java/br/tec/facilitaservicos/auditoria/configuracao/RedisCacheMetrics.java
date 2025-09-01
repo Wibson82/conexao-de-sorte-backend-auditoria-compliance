@@ -137,15 +137,15 @@ public class RedisCacheMetrics {
         try {
             // Contagem de chaves específicas de auditoria
             Long auditEventKeys = redisTemplate.execute((RedisCallback<Long>) connection -> 
-                connection.eval("return #redis.call('keys', ARGV[1])".getBytes(), ReturnType.INTEGER, 1, (applicationName + ":audit:eventos:*").getBytes())
+                connection.eval("return #redis.call('keys', ARGV[1])".getBytes(), ReturnType.INTEGER, 0, (applicationName + ":audit:eventos:*").getBytes())
             );
             
             Long reportKeys = redisTemplate.execute((RedisCallback<Long>) connection -> 
-                connection.eval("return #redis.call('keys', ARGV[1])".getBytes(), ReturnType.INTEGER, 1, (applicationName + ":audit:relatorios:*").getBytes())
+                connection.eval("return #redis.call('keys', ARGV[1])".getBytes(), ReturnType.INTEGER, 0, (applicationName + ":audit:relatorios:*").getBytes())
             );
             
             Long sessionKeys = redisTemplate.execute((RedisCallback<Long>) connection -> 
-                connection.eval("return #redis.call('keys', ARGV[1])".getBytes(), ReturnType.INTEGER, 1, (applicationName + ":audit:sessoes-auditoria:*").getBytes())
+                connection.eval("return #redis.call('keys', ARGV[1])".getBytes(), ReturnType.INTEGER, 0, (applicationName + ":audit:sessoes-auditoria:*").getBytes())
             );
             
             if (auditEventKeys != null) {

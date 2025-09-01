@@ -1,5 +1,6 @@
 package br.tec.facilitaservicos.auditoria.aplicacao.servico;
 
+import br.tec.facilitaservicos.auditoria.aplicacao.mapper.EventoAuditoriaMapper;
 import br.tec.facilitaservicos.auditoria.dominio.repositorio.EventoAuditoriaRepository;
 import br.tec.facilitaservicos.auditoria.infraestrutura.cache.AuditoriaCacheService;
 import org.slf4j.Logger;
@@ -18,10 +19,14 @@ public class CacheWarmingService {
 
     private final AuditoriaCacheService auditoriaCacheService;
     private final EventoAuditoriaRepository eventoAuditoriaRepository;
+    private final EventoAuditoriaMapper eventoAuditoriaMapper;
 
-    public CacheWarmingService(AuditoriaCacheService auditoriaCacheService, EventoAuditoriaRepository eventoAuditoriaRepository) {
+    public CacheWarmingService(AuditoriaCacheService auditoriaCacheService, 
+                              EventoAuditoriaRepository eventoAuditoriaRepository,
+                              EventoAuditoriaMapper eventoAuditoriaMapper) {
         this.auditoriaCacheService = auditoriaCacheService;
         this.eventoAuditoriaRepository = eventoAuditoriaRepository;
+        this.eventoAuditoriaMapper = eventoAuditoriaMapper;
     }
 
     @EventListener(ApplicationReadyEvent.class)
@@ -37,7 +42,10 @@ public class CacheWarmingService {
                         // Usar um userId dummy ou um identificador genérico para o cache de warming
                         // Ou criar um método específico no CacheService para salvar eventos sem userId
                         log.info("Aquecendo cache com {} eventos recentes.", eventos.size());
-                        return auditoriaCacheService.salvarEventosTimeline("warming-user", eventos.stream().map(auditoriaCacheService::mapToDto).collect(java.util.stream.Collectors.toList()));
+                        var eventosDto = eventos.stream()
+                            .map(eventoAuditoriaMapper::paraDto)
+                            .collect(java.util.stream.Collectors.toList());
+                        return auditoriaCacheService.cachearTimeline("audit:timeline:warming-user", eventosDto);
                     } else {
                         log.info("Nenhum evento recente para aquecer o cache.");
                         return Mono.empty();

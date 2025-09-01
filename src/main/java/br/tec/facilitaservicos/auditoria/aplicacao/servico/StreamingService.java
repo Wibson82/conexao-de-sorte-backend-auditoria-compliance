@@ -250,7 +250,11 @@ public class StreamingService {
         return redisTemplate.opsForValue()
             .get(KEY_STREAMING_STATS)
             .cast(Map.class)
-            .map(map -> (Map<String, Object>) map)
+            .map(map -> {
+                @SuppressWarnings("unchecked")
+                Map<String, Object> typedMap = (Map<String, Object>) map;
+                return typedMap;
+            })
             .defaultIfEmpty(gerarMetricasInicial());
     }
 
