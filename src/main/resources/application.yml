@@ -31,12 +31,6 @@ spring:
     url: ${DB_R2DBC_URL:r2dbc:mysql://localhost:3306/conexao_sorte_auditoria}
     username: ${DB_USERNAME:audit_user}
     password: ${DB_PASSWORD:}  # No default password for security
-    pool:
-      enabled: true
-      initial-size: ${DB_POOL_INITIAL_SIZE:5}
-      max-size: ${DB_POOL_MAX_SIZE:20}
-      max-idle-time: 30m
-      max-acquire-time: 60s
 
   # Flyway para migrations (usa JDBC)
   flyway:
@@ -307,8 +301,13 @@ spring:
     username: ${DB_USERNAME}
     password: ${DB_PASSWORD}
     pool:
-      initial-size: 10
-      max-size: 50
+      initial-size: 5
+      max-size: 25
+      max-idle-time: 30m
+      max-acquire-time: 60s
+      max-create-connection-time: 30s
+      max-life-time: 60m
+      validation-query: SELECT 1
 
   flyway:
     url: jdbc:mysql://${DB_HOST}:${DB_PORT:3306}/${DB_NAME:conexao_sorte_auditoria}
