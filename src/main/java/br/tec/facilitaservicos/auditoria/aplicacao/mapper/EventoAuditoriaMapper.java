@@ -10,42 +10,36 @@ import com.fasterxml.jackson.databind.ObjectMapper;
 
 import br.tec.facilitaservicos.auditoria.apresentacao.dto.EventoAuditoriaDto;
 import br.tec.facilitaservicos.auditoria.dominio.entidade.EventoAuditoriaR2dbc;
-import br.tec.facilitaservicos.auditoria.apresentacao.dto.EventoAuditoriaDto.StatusIntegridade;
 
 @Component
 public class EventoAuditoriaMapper {
     private final ObjectMapper objectMapper = new ObjectMapper();
 
     public EventoAuditoriaDto paraDto(EventoAuditoriaR2dbc e) {
-        Map<String,Object> dadosAntes = readJson(e.getDadosAntes());
-        Map<String,Object> dadosDepois = readJson(e.getDadosDepois());
         Map<String,Object> metadados = readJson(e.getMetadados());
-
-        StatusIntegridade integridade = e.getStatusEvento() != null && e.getStatusEvento().name().equals("VALIDADO")
-            ? StatusIntegridade.VALIDA : StatusIntegridade.PENDENTE_VERIFICACAO;
 
         return new EventoAuditoriaDto(
             e.getId(),
             e.getTipoEvento() != null ? e.getTipoEvento().name() : "DESCONHECIDO",
-            e.getEntidadeNome(),
-            e.getEntidadeId(),
+            e.getDataEvento(),
             e.getUsuarioId(),
             e.getUsuarioNome(),
-            e.getSessaoId(),
-            null, // correlationId
-            e.getTraceId(),
-            dadosAntes,
-            dadosDepois,
+            e.getAcaoRealizada(),
+            e.getEntidadeTipo(),
+            e.getEntidadeId(),
+            e.getEntidadeNome(),
+            e.getStatusEvento() != null ? e.getStatusEvento().name() : "CRIADO",
+            e.getSeveridade() != null ? e.getSeveridade().name() : "INFO",
+            e.getIpOrigem(),
+            e.getUserAgent(),
             metadados,
             e.getHashEvento(),
             e.getHashAnterior(),
-            e.getAssinaturaDigital(),
-            integridade,
-            e.getDataEvento(),
-            e.getDataProcessamento() != null ? e.getDataProcessamento() : LocalDateTime.now(),
-            e.getOrigemSistema(),
-            e.getVersaoSistema(),
-            null // contextoSeguranca
+            e.isDadosPessoais(),
+            e.getCategoriaCompliance(),
+            e.getRetencaoAte(),
+            e.isAnonimizado(),
+            e.getDataProcessamento() != null ? e.getDataProcessamento() : LocalDateTime.now()
         );
     }
 

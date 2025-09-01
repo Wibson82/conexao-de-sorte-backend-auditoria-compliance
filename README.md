@@ -91,7 +91,7 @@ mvn spring-boot:run
 
 ### 2. Acesse os Serviços
 
-- **API**: http://localhost:8085/api/auditoria
+- **API**: http://localhost:8085/rest/v1/auditoria
 - **Swagger UI**: http://localhost:8085/swagger-ui.html
 - **Actuator**: http://localhost:8085/actuator
 - **Kafka Control Center**: http://localhost:9021
@@ -104,60 +104,60 @@ mvn spring-boot:run
 
 | Método | Endpoint | Descrição |
 |--------|----------|-----------|
-| `GET` | `/api/auditoria/eventos` | Consultar eventos com filtros |
-| `GET` | `/api/auditoria/trilha/{entidade}/{id}` | Trilha de uma entidade |
-| `GET` | `/api/auditoria/correlacao/{correlationId}` | Eventos por correlação |
-| `GET` | `/api/auditoria/integridade/{eventoId}` | Verificar integridade |
+| `GET` | `/rest/v1/auditoria/eventos` | Consultar eventos com filtros |
+| `GET` | `/rest/v1/auditoria/trilha/{entidade}/{id}` | Trilha de uma entidade |
+| `GET` | `/rest/v1/auditoria/correlacao/{correlationId}` | Eventos por correlação |
+| `GET` | `/rest/v1/auditoria/integridade/{eventoId}` | Verificar integridade |
 
 ### Compliance e Relatórios
 
 | Método | Endpoint | Descrição |
 |--------|----------|-----------|
-| `GET` | `/api/auditoria/relatorio/compliance` | Relatório de compliance |
-| `GET` | `/api/auditoria/metricas` | Métricas de auditoria |
-| `GET` | `/api/auditoria/estatisticas/integridade` | Estatísticas de integridade |
+| `GET` | `/rest/v1/auditoria/relatorio/compliance` | Relatório de compliance |
+| `GET` | `/rest/v1/auditoria/metricas` | Métricas de auditoria |
+| `GET` | `/rest/v1/auditoria/estatisticas/integridade` | Estatísticas de integridade |
 
 ### Verificações Criptográficas
 
 | Método | Endpoint | Descrição |
 |--------|----------|-----------|
-| `POST` | `/api/auditoria/verificar-assinatura` | Verificar assinatura digital |
-| `POST` | `/api/auditoria/validar-cadeia` | Validar cadeia de hashes |
+| `POST` | `/rest/v1/auditoria/verificar-assinatura` | Verificar assinatura digital |
+| `POST` | `/rest/v1/auditoria/validar-cadeia` | Validar cadeia de hashes |
 
 ## 🎮 Exemplos de Uso
 
 ### Consultar Eventos de Auditoria
 
 ```bash
-curl -X GET "http://localhost:8085/api/auditoria/eventos?tipoEvento=LOGIN&dataInicio=2024-01-01T00:00:00&dataFim=2024-12-31T23:59:59&page=0&size=50" \
+curl -X GET "http://localhost:8085/rest/v1/auditoria/eventos?tipoEvento=LOGIN&dataInicio=2024-01-01T00:00:00&dataFim=2024-12-31T23:59:59&page=0&size=50" \
   -H "Authorization: Bearer YOUR_JWT_TOKEN"
 ```
 
 ### Obter Trilha de uma Entidade
 
 ```bash
-curl -X GET "http://localhost:8085/api/auditoria/trilha/usuario/123" \
+curl -X GET "http://localhost:8085/rest/v1/auditoria/trilha/usuario/123" \
   -H "Authorization: Bearer YOUR_JWT_TOKEN"
 ```
 
 ### Verificar Integridade de Evento
 
 ```bash
-curl -X GET "http://localhost:8085/api/auditoria/integridade/evento-uuid-123" \
+curl -X GET "http://localhost:8085/rest/v1/auditoria/integridade/evento-uuid-123" \
   -H "Authorization: Bearer YOUR_JWT_TOKEN"
 ```
 
 ### Gerar Relatório de Compliance
 
 ```bash
-curl -X GET "http://localhost:8085/api/auditoria/relatorio/compliance?dataInicio=2024-01-01T00:00:00&dataFim=2024-12-31T23:59:59&tipoRelatorio=GDPR" \
+curl -X GET "http://localhost:8085/rest/v1/auditoria/relatorio/compliance?dataInicio=2024-01-01T00:00:00&dataFim=2024-12-31T23:59:59&tipoRelatorio=GDPR" \
   -H "Authorization: Bearer YOUR_JWT_TOKEN"
 ```
 
 ### Verificar Assinatura Digital
 
 ```bash
-curl -X POST "http://localhost:8085/api/auditoria/verificar-assinatura" \
+curl -X POST "http://localhost:8085/rest/v1/auditoria/verificar-assinatura" \
   -H "Authorization: Bearer YOUR_JWT_TOKEN" \
   -H "Content-Type: application/json" \
   -d '{
@@ -438,3 +438,14 @@ Este projeto está sob a licença MIT. Veja o arquivo [LICENSE](LICENSE) para de
 ---
 
 **📋 Microserviço Auditoria & Compliance** - Sistema de Migração R2DBC v1.0
+## ✅ Qualidade e Segurança (CI)
+
+- Cobertura: JaCoCo ≥ 80% (gate no workflow Maven Verify).
+- SAST: CodeQL habilitado para varredura contínua.
+
+## 🧪 Staging: Integrações, Robustez e Cache
+
+- Integrações Kafka/PostgreSQL: validar conectividade e tópicos/DDL no ambiente de Staging.
+- Event Sourcing: validar fluxo e integridade dos eventos (replay/consistência).
+- Resilience4j: validar circuit breakers e retries em falhas simuladas.
+- Cache: validar estratégia/TTLs para consultas de auditoria/compliance.

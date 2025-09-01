@@ -229,7 +229,7 @@ security:
 server:
   port: ${SERVER_PORT:8082}
   servlet:
-    context-path: /api/v1/audit
+    context-path: /rest/v1/audit
   compression:
     enabled: true
   http2:

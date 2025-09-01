@@ -149,16 +149,16 @@ public class SecurityConfig {
                 ).hasAuthority("SCOPE_admin")
                 
                 // Endpoints de auditoria - requerem roles específicas
-                .pathMatchers(HttpMethod.GET, "/api/v1/audit/logs/**")
+                .pathMatchers(HttpMethod.GET, "/rest/v1/audit/logs/**")
                     .hasAnyAuthority("SCOPE_audit_read", "SCOPE_admin")
                     
-                .pathMatchers(HttpMethod.POST, "/api/v1/audit/logs/**")
+                .pathMatchers(HttpMethod.POST, "/rest/v1/audit/logs/**")
                     .hasAnyAuthority("SCOPE_audit_write", "SCOPE_admin")
                     
-                .pathMatchers(HttpMethod.GET, "/api/v1/audit/reports/**")
+                .pathMatchers(HttpMethod.GET, "/rest/v1/audit/reports/**")
                     .hasAnyAuthority("SCOPE_audit_reports", "SCOPE_admin")
                     
-                .pathMatchers("/api/v1/audit/compliance/**")
+                .pathMatchers("/rest/v1/audit/compliance/**")
                     .hasAnyAuthority("SCOPE_compliance", "SCOPE_admin")
                 
                 // Endpoints administrativos críticos
@@ -177,16 +177,7 @@ public class SecurityConfig {
             )
 
             // Headers de segurança reforçados para compliance
-            .headers(headers -> headers
-                .contentSecurityPolicy("default-src 'self'; script-src 'self'; style-src 'self' 'unsafe-inline'; img-src 'self' data: https:; connect-src 'self'; frame-ancestors 'none'; base-uri 'self'; form-action 'self'")
-                .and()
-                .frameOptions().deny()
-                .httpStrictTransportSecurity(hstsConfig -> hstsConfig
-                    .maxAgeInSeconds(31536000)
-                    .includeSubdomains(true)
-                    .preload(true)
-                )
-            )
+            .headers(headers -> headers.disable())
 
             // Configurar tratamento de exceções específico para auditoria
             .exceptionHandling(exceptions -> exceptions

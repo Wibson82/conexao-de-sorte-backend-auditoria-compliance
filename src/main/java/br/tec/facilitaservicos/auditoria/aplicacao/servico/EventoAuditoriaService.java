@@ -102,7 +102,7 @@ public class EventoAuditoriaService {
             .doOnSuccess(eventoDto -> {
                 // Streaming assíncrono para Kafka
                 if (streamingHabilitado) {
-                    streamingService.publicarEvento(eventoDto)
+                    streamingService.emitirEvento(eventoDto)
                         .subscribe(
                             result -> {}, // Success handler
                             error -> {} // Error handler (não deve falhar o fluxo principal)

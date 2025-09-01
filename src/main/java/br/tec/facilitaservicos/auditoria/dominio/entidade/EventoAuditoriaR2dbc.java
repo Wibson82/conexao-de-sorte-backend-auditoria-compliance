@@ -263,6 +263,20 @@ public class EventoAuditoriaR2dbc {
     }
 
     /**
+     * Getter boolean para dados pessoais (convenção JavaBean)
+     */
+    public boolean isDadosPessoais() {
+        return Boolean.TRUE.equals(this.dadosPessoais);
+    }
+
+    /**
+     * Getter boolean para estado de anonimização (convenção JavaBean)
+     */
+    public boolean isAnonimizado() {
+        return Boolean.TRUE.equals(this.anonimizado);
+    }
+
+    /**
      * Verifica se evento está expirado para retenção
      */
     public boolean isExpirado() {

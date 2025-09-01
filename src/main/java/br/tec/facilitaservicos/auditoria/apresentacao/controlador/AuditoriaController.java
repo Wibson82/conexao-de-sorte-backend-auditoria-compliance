@@ -38,18 +38,18 @@ import reactor.core.publisher.Mono;
  * - Validação de assinaturas digitais
  * 
  * Endpoints:
- * - GET /api/auditoria/eventos - Consultar eventos de auditoria
- * - GET /api/auditoria/trilha/{entidade}/{id} - Trilha de uma entidade
- * - GET /api/auditoria/integridade/{id} - Verificar integridade
- * - GET /api/auditoria/relatorio/compliance - Relatórios compliance
- * - POST /api/auditoria/verificar-assinatura - Verificar assinatura
+ * - GET /rest/v1/auditoria/eventos - Consultar eventos de auditoria
+ * - GET /rest/v1/auditoria/trilha/{entidade}/{id} - Trilha de uma entidade
+ * - GET /rest/v1/auditoria/integridade/{id} - Verificar integridade
+ * - GET /rest/v1/auditoria/relatorio/compliance - Relatórios compliance
+ * - POST /rest/v1/auditoria/verificar-assinatura - Verificar assinatura
  * 
  * @author Sistema de Migração R2DBC
  * @version 1.0
  * @since 2024
  */
 @RestController
-@RequestMapping("/api/auditoria")
+@RequestMapping("/rest/v1/auditoria")
 @Tag(name = "Auditoria", description = "API para consulta de trilhas de auditoria e compliance")
 @SecurityRequirement(name = "bearerAuth")
 public class AuditoriaController {

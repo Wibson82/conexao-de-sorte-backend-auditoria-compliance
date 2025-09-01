@@ -14,33 +14,27 @@ import jakarta.validation.constraints.NotNull;
 public record EventoAuditoriaDto(
     @NotBlank String id,
     @NotBlank String tipoEvento,
-    @NotBlank String entidade,
-    @NotBlank String entidadeId,
-    @NotBlank String usuarioId,
-    String usuarioNome,
-    String sessaoId,
-    String correlationId,
-    String traceId,
-    Map<String, Object> dadosAntes,
-    Map<String, Object> dadosDepois,
-    Map<String, Object> metadados,
-    @NotBlank String hash,
-    String hashAnterior,
-    String assinatura,
-    @NotNull StatusIntegridade integridade,
     @JsonFormat(pattern = "yyyy-MM-dd'T'HH:mm:ss.SSS")
     LocalDateTime timestamp,
+    @NotBlank String usuarioId,
+    String usuarioNome,
+    @NotBlank String acaoRealizada,
+    String entidadeTipo,
+    String entidadeId,
+    String entidadeNome,
+    String statusEvento,
+    String severidade,
+    String ipOrigem,
+    String userAgent,
+    Map<String, Object> metadados,
+    String hashEvento,
+    String hashAnterior,
+    Boolean dadosPessoais,
+    String categoriaCompliance,
     @JsonFormat(pattern = "yyyy-MM-dd'T'HH:mm:ss.SSS")
-    LocalDateTime criadoEm,
-    String origem,
-    String versaoEsquema,
-    Map<String, Object> contextoSeguranca
+    LocalDateTime retencaoAte,
+    Boolean anonimizado,
+    @JsonFormat(pattern = "yyyy-MM-dd'T'HH:mm:ss.SSS")
+    LocalDateTime createdAt
 ) {
-    
-    public enum StatusIntegridade {
-        VALIDA,
-        CORROMPIDA,
-        NAO_VERIFICADA,
-        PENDENTE_VERIFICACAO
-    }
 }

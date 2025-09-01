@@ -117,7 +117,7 @@ curl -f http://localhost:8084/actuator/health/db
 
 ```bash
 # Verificar endpoint de saúde da auditoria
-curl -f http://localhost:8084/api/v1/audit/health
+curl -f http://localhost:8084/rest/v1/audit/health
 # Deve retornar status das funcionalidades de auditoria
 
 # Verificar conectividade com Redis para cache de auditoria
@@ -129,7 +129,7 @@ curl -s http://localhost:8084/actuator/metrics/audit.events.processed.total
 curl -s http://localhost:8084/actuator/metrics/compliance.checks.performed.total
 
 # Verificar se logs de auditoria estão sendo gerados
-curl -f http://localhost:8084/api/v1/audit/events/count
+curl -f http://localhost:8084/rest/v1/audit/events/count
 # Deve retornar contagem de eventos de auditoria
 ```
 
@@ -143,7 +143,7 @@ curl -f http://localhost:8084/api/v1/audit/events/count
 # mysql -h <audit-host> -u <audit-user> -p<audit-password> -e "SELECT COUNT(*) FROM audit_logs WHERE timestamp > NOW() - INTERVAL 1 HOUR;"
 
 # Verificar conectividade via endpoint
-curl -X POST http://localhost:8084/api/v1/audit/test/db-connection \
+curl -X POST http://localhost:8084/rest/v1/audit/test/db-connection \
   -H "Authorization: Bearer <valid-jwt-token>"
 # Deve retornar sucesso se conectividade estiver ok
 ```
@@ -152,7 +152,7 @@ curl -X POST http://localhost:8084/api/v1/audit/test/db-connection \
 
 ```bash
 # Testar geração de relatório de compliance
-curl -X POST http://localhost:8084/api/v1/compliance/reports/generate \
+curl -X POST http://localhost:8084/rest/v1/compliance/reports/generate \
   -H "Content-Type: application/json" \
   -H "Authorization: Bearer <valid-jwt-token>" \
   -d '{
@@ -162,31 +162,30 @@ curl -X POST http://localhost:8084/api/v1/compliance/reports/generate \
   }'
 
 # Testar validação de conformidade
-curl -X POST http://localhost:8084/api/v1/compliance/validate \
+curl -X POST http://localhost:8084/rest/v1/compliance/validate \
   -H "Content-Type: application/json" \
   -H "Authorization: Bearer <valid-jwt-token>" \
   -d '{"entityId": "test-entity", "complianceType": "DATA_PROTECTION"}'
 
 # Verificar logs de auditoria em tempo real
 curl -H "Authorization: Bearer <valid-jwt-token>" \
-  "http://localhost:8084/api/v1/audit/events/recent?limit=10"
+  "http://localhost:8084/rest/v1/audit/events/recent?limit=10"
 ```
 
 ## **10. VERIFICAÇÃO DE ARQUIVAMENTO E RETENÇÃO**
 
 ```bash
 # Testar funcionalidade de arquivamento
-curl -X POST http://localhost:8084/api/v1/audit/archive/trigger \
+curl -X POST http://localhost:8084/rest/v1/audit/archive/trigger \
   -H "Authorization: Bearer <valid-jwt-token>" \
   -d '{"olderThanDays": 90}'
 
 # Verificar configurações de retenção
 curl -H "Authorization: Bearer <valid-jwt-token>" \
-  http://localhost:8084/api/v1/audit/retention-policies
+  http://localhost:8084/rest/v1/audit/retention-policies
 
 # Testar conectividade com storage de arquivo
-curl -X GET http://localhost:8084/api/v1/audit/archive/status \
-  -H "Authorization: Bearer <valid-jwt-token>"
+  http://localhost:8084/rest/v1/audit/archive/status
 ```
 
 ## **11. VERIFICAÇÃO DE CONECTIVIDADE JWT**
@@ -194,11 +193,11 @@ curl -X GET http://localhost:8084/api/v1/audit/archive/status \
 ```bash
 # Testar endpoint protegido com JWT válido
 curl -H "Authorization: Bearer <test-jwt-token>" \
-  http://localhost:8084/api/v1/audit/events
+  http://localhost:8084/rest/v1/audit/events
 # Deve retornar dados de auditoria ou erro 401 sem token
 
 # Testar criação de evento de auditoria
-curl -X POST http://localhost:8084/api/v1/audit/events \
+curl -X POST http://localhost:8084/rest/v1/audit/events \
   -H "Content-Type: application/json" \
   -H "Authorization: Bearer <valid-jwt-token>" \
   -d '{
@@ -307,7 +306,7 @@ else
 fi
 
 # Testar endpoint de eventos de auditoria
-if curl -f -s http://localhost:8084/api/v1/audit/events/count > /dev/null; then
+if curl -f -s http://localhost:8084/rest/v1/audit/events/count > /dev/null; then
     echo "✅ Endpoint de eventos de auditoria funcionando"
 else
     echo "⚠️ Endpoint de auditoria não disponível (pode ser normal se não implementado)"
@@ -365,7 +364,7 @@ done
 
 # Verificar se logs de auditoria estão sendo gerados
 RECENT_AUDIT_COUNT=$(curl -s -H "Authorization: Bearer $AUDIT_TOKEN" \
-  "http://localhost:8084/api/v1/audit/events/count?since=1h" 2>/dev/null || echo "0")
+  "http://localhost:8084/rest/v1/audit/events/count?since=1h" 2>/dev/null || echo "0")
 
 if [[ "$RECENT_AUDIT_COUNT" -eq 0 ]]; then
     echo "⚠️ ALERTA: Nenhum evento de auditoria nas últimas horas!"
@@ -378,7 +377,7 @@ chmod +x /usr/local/bin/check-key-expiration-auditoria.sh
 
 ```bash
 # Testar criação de evento de auditoria completo
-curl -X POST http://localhost:8084/api/v1/audit/events \
+curl -X POST http://localhost:8084/rest/v1/audit/events \
   -H "Content-Type: application/json" \
   -H "Authorization: Bearer <valid-jwt-token>" \
   -d '{
@@ -397,10 +396,10 @@ curl -X POST http://localhost:8084/api/v1/audit/events \
 
 # Testar busca de eventos de auditoria
 curl -H "Authorization: Bearer <valid-jwt-token>" \
-  "http://localhost:8084/api/v1/audit/events/search?eventType=SECURITY_TEST&limit=5"
+  "http://localhost:8084/rest/v1/audit/events/search?eventType=SECURITY_TEST&limit=5"
 
 # Testar relatório de compliance GDPR
-curl -X POST http://localhost:8084/api/v1/compliance/reports/gdpr \
+  curl -X POST http://localhost:8084/rest/v1/compliance/reports/gdpr \
   -H "Content-Type: application/json" \
   -H "Authorization: Bearer <valid-jwt-token>" \
   -d '{
@@ -416,7 +415,7 @@ curl -s http://localhost:8084/actuator/metrics/audit.events.by.type
 curl -s http://localhost:8084/actuator/metrics/compliance.violations.total
 
 # Testar webhook de compliance
-curl -X POST http://localhost:8084/api/v1/compliance/webhook/test \
+  curl -X POST http://localhost:8084/rest/v1/compliance/webhook/test \
   -H "Content-Type: application/json" \
   -H "Authorization: Bearer <valid-jwt-token>" \
   -d '{
@@ -427,5 +426,5 @@ curl -X POST http://localhost:8084/api/v1/compliance/webhook/test \
 
 # Verificar integridade dos logs de auditoria
 curl -H "Authorization: Bearer <valid-jwt-token>" \
-  http://localhost:8084/api/v1/audit/integrity/verify
+  http://localhost:8084/rest/v1/audit/integrity/verify
 ```
