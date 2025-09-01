@@ -4,7 +4,6 @@ import java.time.Duration;
 import java.util.Map;
 
 import org.springframework.beans.factory.annotation.Value;
-import org.springframework.http.HttpStatus;
 import org.springframework.stereotype.Component;
 import org.springframework.web.reactive.function.client.WebClient;
 import org.springframework.web.reactive.function.client.WebClientResponseException;
@@ -59,13 +58,15 @@ public class NotificacoesServiceClient {
             "tipo", "EVENTO_CRITICO_AUDITORIA",
             "destinatario", "admin@conexaodesorte.com.br",
             "assunto", "🚨 Evento Crítico de Auditoria: " + tipoEvento,
-            "conteudo", String.format(
-                "Evento crítico detectado:\n\n" +
-                "ID do Evento: %s\n" + 
-                "Tipo: %s\n" +
-                "Usuário: %s\n" +
-                "Descrição: %s\n\n" +
-                "Verifique imediatamente no painel de auditoria.",
+            "conteudo", String.format("""
+                                      Evento cr\u00edtico detectado:
+                                      
+                                      ID do Evento: %s
+                                      Tipo: %s
+                                      Usu\u00e1rio: %s
+                                      Descri\u00e7\u00e3o: %s
+                                      
+                                      Verifique imediatamente no painel de auditoria.""",
                 eventoId, tipoEvento, usuarioId, descricao
             ),
             "prioridade", "ALTA",
@@ -105,12 +106,14 @@ public class NotificacoesServiceClient {
             "tipo", "VIOLACAO_COMPLIANCE",
             "destinatario", "compliance@conexaodesorte.com.br",
             "assunto", "⚠️ Violação de Compliance Detectada: " + regulamento,
-            "conteudo", String.format(
-                "Violação de compliance detectada:\n\n" +
-                "Regulamento: %s\n" +
-                "Usuário Envolvido: %s\n" +
-                "Descrição: %s\n\n" +
-                "Ação imediata requerida para manter conformidade regulatória.",
+            "conteudo", String.format("""
+                                      Viola\u00e7\u00e3o de compliance detectada:
+                                      
+                                      Regulamento: %s
+                                      Usu\u00e1rio Envolvido: %s
+                                      Descri\u00e7\u00e3o: %s
+                                      
+                                      A\u00e7\u00e3o imediata requerida para manter conformidade regulat\u00f3ria.""",
                 regulamento, usuarioId, descricaoViolacao
             ),
             "prioridade", "CRITICA",

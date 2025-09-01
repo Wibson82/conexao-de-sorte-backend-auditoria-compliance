@@ -50,15 +50,11 @@ public class OpenApiConfig {
                                                 .description("Service is healthy")
                                                 .content(new Content()
                                                         .addMediaType("application/json", new io.swagger.v3.oas.models.media.MediaType()
-                                                                .schema(new Schema<>()
-                                                                        .type("object")
-                                                                        .addProperty("status", new Schema<>().type("string").example("UP"))))))
+                                                                .schema(new Schema<>().type("object")))))
                                         .addApiResponse("503", new ApiResponse()
                                                 .description("Service is unhealthy")
                                                 .content(new Content()
                                                         .addMediaType("application/json", new io.swagger.v3.oas.models.media.MediaType()
-                                                                .schema(new Schema<>()
-                                                                        .type("object")
-                                                                        .addProperty("status", new Schema<>().type("string").example("DOWN"))))))));
+                                                                .schema(new Schema<>().type("object"))))))));
     }
 }

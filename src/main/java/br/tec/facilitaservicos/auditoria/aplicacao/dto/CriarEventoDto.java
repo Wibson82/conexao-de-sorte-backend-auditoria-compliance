@@ -2,25 +2,57 @@ package br.tec.facilitaservicos.auditoria.aplicacao.dto;
 
 import java.util.Map;
 
+import com.fasterxml.jackson.annotation.JsonInclude;
+
 import br.tec.facilitaservicos.auditoria.dominio.enums.NivelSeveridade;
 import br.tec.facilitaservicos.auditoria.dominio.enums.TipoEvento;
+import io.swagger.v3.oas.annotations.media.Schema;
+import jakarta.validation.constraints.NotBlank;
+import jakarta.validation.constraints.NotNull;
 
+/**
+ * DTO para criação de um novo evento de auditoria.
+ * Utilizado para registrar ações e eventos importantes no sistema,
+ * garantindo rastreabilidade e conformidade.
+ */
+@JsonInclude(JsonInclude.Include.NON_NULL)
+@Schema(description = "Dados para criação de um novo evento de auditoria")
 public class CriarEventoDto {
+    @Schema(description = "Tipo do evento de auditoria", example = "LOGIN_SUCESSO")
+    @NotNull(message = "Tipo do evento é obrigatório")
     private TipoEvento tipoEvento;
+    @Schema(description = "Identificador único do usuário que disparou o evento", example = "user-123")
+    @NotBlank(message = "ID do usuário é obrigatório")
     private String usuarioId;
+    @Schema(description = "Nome do usuário que disparou o evento", example = "João Silva")
     private String usuarioNome;
+    @Schema(description = "ID da sessão do usuário (se aplicável)", example = "sessao-abc-123")
     private String sessaoId;
+    @Schema(description = "Endereço IP de origem do evento", example = "192.168.1.1")
     private String ipOrigem;
+    @Schema(description = "User-Agent do cliente que disparou o evento", example = "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/123.0.0.0 Safari/537.36")
     private String userAgent;
+    @Schema(description = "Tipo da entidade afetada pelo evento (ex: USUARIO, PRODUTO)", example = "USUARIO")
     private String entidadeTipo;
+    @Schema(description = "ID da entidade afetada pelo evento", example = "user-456")
     private String entidadeId;
+    @Schema(description = "Nome da entidade afetada pelo evento", example = "Usuário Teste")
     private String entidadeNome;
+    @Schema(description = "Descrição da ação realizada", example = "Login de usuário")
+    @NotBlank(message = "Ação realizada é obrigatória")
     private String acaoRealizada;
+    @Schema(description = "Estado dos dados antes da ação (JSON)", example = "{\"oldValue\": \"valorAntigo\"}")
     private Map<String, Object> dadosAntes;
+    @Schema(description = "Estado dos dados depois da ação (JSON)", example = "{\"newValue\": \"valorNovo\"}")
     private Map<String, Object> dadosDepois;
+    @Schema(description = "Metadados adicionais do evento (JSON)", example = "{\"origem\": \"API\", \"versao\": \"1.0\"}")
     private Map<String, Object> metadados;
+    @Schema(description = "Nível de severidade do evento", example = "ALTA", allowableValues = {"BAIXA", "MEDIA", "ALTA", "CRITICA"})
+    @NotNull(message = "Nível de severidade é obrigatório")
     private NivelSeveridade severidade;
+    @Schema(description = "ID de rastreamento distribuído (OpenTelemetry/Zipkin)", example = "a1b2c3d4e5f6a7b8c9d0e1f2a3b4c5d6")
     private String traceId;
+    @Schema(description = "ID do span dentro do rastreamento distribuído", example = "f7e6d5c4b3a2b1c0")
     private String spanId;
 
     public static Builder builder() { return new Builder(); }

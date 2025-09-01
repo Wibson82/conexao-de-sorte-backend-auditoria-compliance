@@ -1,12 +1,5 @@
-
 package br.tec.facilitaservicos.auditoria.config;
 
-import io.micrometer.core.instrument.MeterRegistry;
-import io.micrometer.core.instrument.binder.r2dbc.ConnectionPoolMetrics;
-import java.util.Collections;
-
-import io.r2dbc.pool.ConnectionPool;
-import io.r2dbc.pool.ConnectionPoolConfiguration;
 import io.r2dbc.spi.ConnectionFactories;
 import io.r2dbc.spi.ConnectionFactory;
 import io.r2dbc.spi.ConnectionFactoryOptions;
@@ -33,30 +26,9 @@ public class R2dbcConfig extends AbstractR2dbcConfiguration {
     @Value("${spring.r2dbc.password}")
     private String password;
 
-    @Value("${spring.r2dbc.pool.initial-size:5}")
-    private int initialSize;
-
-    @Value("${spring.r2dbc.pool.max-size:25}")
-    private int maxSize;
-
-    @Value("${spring.r2dbc.pool.max-idle-time:30m}")
-    private Duration maxIdleTime;
-
-    @Value("${spring.r2dbc.pool.max-acquire-time:60s}")
-    private Duration maxAcquireTime;
-
-    @Value("${spring.r2dbc.pool.max-create-connection-time:30s}")
-    private Duration maxCreateConnectionTime;
-
-    @Value("${spring.r2dbc.pool.max-life-time:60m}")
-    private Duration maxLifeTime;
-
-    @Value("${spring.r2dbc.pool.validation-query:SELECT 1}")
-    private String validationQuery;
-
     @Override
     @Bean
-    public ConnectionFactory connectionFactory(MeterRegistry meterRegistry) {
+    public ConnectionFactory connectionFactory() {
         ConnectionFactoryOptions options = ConnectionFactoryOptions.parse(url)
                 .mutate()
                 .option(ConnectionFactoryOptions.USER, username)
@@ -64,21 +36,7 @@ public class R2dbcConfig extends AbstractR2dbcConfiguration {
                 .build();
 
         ConnectionFactory connectionFactory = ConnectionFactories.get(options);
-
-        ConnectionPoolConfiguration poolConfiguration = ConnectionPoolConfiguration.builder(connectionFactory)
-                .initialSize(initialSize)
-                .maxSize(maxSize)
-                .maxIdleTime(maxIdleTime)
-                .maxAcquireTime(maxAcquireTime)
-                .maxCreateConnectionTime(maxCreateConnectionTime)
-                .maxLifeTime(maxLifeTime)
-                .validationQuery(validationQuery)
-                .acquireRetry(3)
-                .build();
-
-        ConnectionPool connectionPool = new ConnectionPool(poolConfiguration);
-        new ConnectionPoolMetrics(connectionPool, "r2dbc.pool", Collections.emptyList()).bindTo(meterRegistry);
-        return connectionPool;
+        return connectionFactory;
     }
 
     @Bean

@@ -1,5 +1,7 @@
 package br.tec.facilitaservicos.auditoria.dominio.enums;
 
+import io.swagger.v3.oas.annotations.media.Schema;
+
 /**
  * ============================================================================
  * 📋 TIPOS DE EVENTO DE AUDITORIA
@@ -23,80 +25,133 @@ package br.tec.facilitaservicos.auditoria.dominio.enums;
 public enum TipoEvento {
     
     // === AUTENTICAÇÃO ===
+    @Schema(description = "Login realizado com sucesso")
     LOGIN_SUCESSO("auth.login.success", "Login realizado com sucesso", false),
+    @Schema(description = "Tentativa de login falhada")
     LOGIN_FALHA("auth.login.failure", "Tentativa de login falhada", true),
+    @Schema(description = "Login bloqueado por tentativas")
     LOGIN_BLOQUEADO("auth.login.blocked", "Login bloqueado por tentativas", true),
+    @Schema(description = "Logout realizado")
     LOGOUT("auth.logout", "Logout realizado", false),
+    @Schema(description = "Senha alterada pelo usuário")
     SENHA_ALTERADA("auth.password.changed", "Senha alterada pelo usuário", true),
+    @Schema(description = "Reset de senha solicitado")
     SENHA_RESET("auth.password.reset", "Reset de senha solicitado", true),
+    @Schema(description = "Token JWT criado")
     TOKEN_CRIADO("auth.token.created", "Token JWT criado", false),
+    @Schema(description = "Token JWT renovado")
     TOKEN_RENOVADO("auth.token.refreshed", "Token JWT renovado", false),
+    @Schema(description = "Token JWT revogado")
     TOKEN_REVOGADO("auth.token.revoked", "Token JWT revogado", true),
     
     // === AUTORIZAÇÃO ===
+    @Schema(description = "Acesso negado a recurso")
     ACESSO_NEGADO("auth.access.denied", "Acesso negado a recurso", true),
+    @Schema(description = "Permissão concedida")
     PERMISSAO_CONCEDIDA("auth.permission.granted", "Permissão concedida", true),
+    @Schema(description = "Permissão revogada")
     PERMISSAO_REVOGADA("auth.permission.revoked", "Permissão revogada", true),
+    @Schema(description = "Role atribuído ao usuário")
     ROLE_ATRIBUIDO("auth.role.assigned", "Role atribuído ao usuário", true),
+    @Schema(description = "Role removido do usuário")
     ROLE_REMOVIDO("auth.role.removed", "Role removido do usuário", true),
     
     // === DADOS PESSOAIS (LGPD) ===
+    @Schema(description = "Dados pessoais criados")
     DADOS_CRIADOS("data.created", "Dados pessoais criados", true),
+    @Schema(description = "Dados pessoais acessados")
     DADOS_ACESSADOS("data.accessed", "Dados pessoais acessados", true),
+    @Schema(description = "Dados pessoais modificados")
     DADOS_MODIFICADOS("data.modified", "Dados pessoais modificados", true),
+    @Schema(description = "Dados pessoais excluídos")
     DADOS_EXCLUIDOS("data.deleted", "Dados pessoais excluídos", true),
+    @Schema(description = "Dados pessoais exportados")
     DADOS_EXPORTADOS("data.exported", "Dados pessoais exportados", true),
+    @Schema(description = "Dados pessoais anonimizados")
     DADOS_ANONIMIZADOS("data.anonymized", "Dados pessoais anonimizados", true),
     
     // === OPERAÇÕES DE SISTEMA ===
+    @Schema(description = "Usuário criado no sistema")
     USUARIO_CRIADO("user.created", "Usuário criado no sistema", true),
+    @Schema(description = "Dados do usuário atualizados")
     USUARIO_ATUALIZADO("user.updated", "Dados do usuário atualizados", true),
+    @Schema(description = "Usuário desativado")
     USUARIO_DESATIVADO("user.deactivated", "Usuário desativado", true),
+    @Schema(description = "Usuário reativado")
     USUARIO_REATIVADO("user.reactivated", "Usuário reativado", true),
     
     // === FINANCEIRO ===
+    @Schema(description = "Transação financeira criada")
     TRANSACAO_CRIADA("finance.transaction.created", "Transação financeira criada", true),
+    @Schema(description = "Transação aprovada")
     TRANSACAO_APROVADA("finance.transaction.approved", "Transação aprovada", true),
+    @Schema(description = "Transação rejeitada")
     TRANSACAO_REJEITADA("finance.transaction.rejected", "Transação rejeitada", true),
+    @Schema(description = "Pagamento processado")
     PAGAMENTO_PROCESSADO("finance.payment.processed", "Pagamento processado", true),
+    @Schema(description = "Saldo da conta alterado")
     SALDO_ALTERADO("finance.balance.changed", "Saldo da conta alterado", true),
     
     // === COMUNICAÇÃO ===
+    @Schema(description = "Mensagem enviada")
     MENSAGEM_ENVIADA("comm.message.sent", "Mensagem enviada", false),
+    @Schema(description = "Mensagem editada")
     MENSAGEM_EDITADA("comm.message.edited", "Mensagem editada", false),
+    @Schema(description = "Mensagem excluída")
     MENSAGEM_EXCLUIDA("comm.message.deleted", "Mensagem excluída", false),
+    @Schema(description = "Notificação enviada")
     NOTIFICACAO_ENVIADA("comm.notification.sent", "Notificação enviada", false),
+    @Schema(description = "Email enviado")
     EMAIL_ENVIADO("comm.email.sent", "Email enviado", false),
     
     // === CONFIGURAÇÕES ===
+    @Schema(description = "Configuração do sistema alterada")
     CONFIG_ALTERADA("system.config.changed", "Configuração do sistema alterada", true),
+    @Schema(description = "Feature flag alterada")
     FEATURE_FLAG_ALTERADA("system.feature.toggled", "Feature flag alterada", true),
+    @Schema(description = "Cache limpo")
     CACHE_LIMPO("system.cache.cleared", "Cache limpo", false),
+    @Schema(description = "Backup realizado")
     BACKUP_REALIZADO("system.backup.completed", "Backup realizado", false),
     
     // === SEGURANÇA ===
+    @Schema(description = "Tentativa de intrusão detectada")
     TENTATIVA_INTRUSION("security.intrusion.attempt", "Tentativa de intrusão detectada", true),
+    @Schema(description = "Chave criptográfica rotacionada")
     CHAVE_ROTACIONADA("security.key.rotated", "Chave criptográfica rotacionada", true),
+    @Schema(description = "Certificado renovado")
     CERTIFICADO_RENOVADO("security.certificate.renewed", "Certificado renovado", false),
     
     // === COMPLIANCE ===
+    @Schema(description = "Consentimento LGPD dado")
     CONSENTIMENTO_DADO("compliance.consent.given", "Consentimento LGPD dado", true),
+    @Schema(description = "Consentimento LGPD retirado")
     CONSENTIMENTO_RETIRADO("compliance.consent.withdrawn", "Consentimento LGPD retirado", true),
+    @Schema(description = "Direito ao esquecimento exercido")
     DIREITO_ESQUECIMENTO("compliance.right.forgotten", "Direito ao esquecimento exercido", true),
+    @Schema(description = "Portabilidade de dados solicitada")
     PORTABILIDADE_DADOS("compliance.data.portability", "Portabilidade de dados solicitada", true),
     
     // === ERROS E EXCEÇÕES ===
+    @Schema(description = "Erro de aplicação")
     ERRO_APLICACAO("error.application", "Erro de aplicação", true),
+    @Schema(description = "Erro de banco de dados")
     ERRO_BANCO_DADOS("error.database", "Erro de banco de dados", true),
+    @Schema(description = "Erro de integração externa")
     ERRO_INTEGRACAO("error.integration", "Erro de integração externa", true),
+    @Schema(description = "Erro de autenticação")
     ERRO_AUTENTICACAO("error.authentication", "Erro de autenticação", true),
     
     // === MONITORAMENTO ===
+    @Schema(description = "Limite de rate excedido")
     LIMITE_RATE_EXCEDIDO("monitor.rate.limit.exceeded", "Limite de rate excedido", true),
+    @Schema(description = "Recurso indisponível")
     RECURSO_INDISPONIVEL("monitor.resource.unavailable", "Recurso indisponível", true),
+    @Schema(description = "Alerta de monitoramento disparado")
     ALERTA_DISPARADO("monitor.alert.triggered", "Alerta de monitoramento disparado", true),
     
     // === OUTROS ===
+    @Schema(description = "Evento customizado")
     EVENTO_CUSTOMIZADO("custom.event", "Evento customizado", false);
 
     private final String codigo;

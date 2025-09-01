@@ -7,16 +7,22 @@ import br.tec.facilitaservicos.auditoria.dominio.repositorio.EventoAuditoriaRepo
 import org.springframework.data.redis.core.ReactiveRedisTemplate;
 import org.springframework.data.redis.core.ReactiveStringRedisTemplate;
 import org.springframework.stereotype.Service;
+
 import reactor.core.publisher.Flux;
 import reactor.core.publisher.Mono;
 
+import com.fasterxml.jackson.core.type.TypeReference;
 import com.fasterxml.jackson.databind.ObjectMapper;
+import com.fasterxml.jackson.core.JsonProcessingException;
 
 import java.time.Duration;
 import java.time.LocalDateTime;
 import java.util.HashMap;
 import java.util.Map;
-import java.util.Set;
+import java.util.Properties;
+
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 
 /**
  * ============================================================================
@@ -38,6 +44,8 @@ import java.util.Set;
 @Service
 public class CacheService {
 
+    private static final Logger logger = LoggerFactory.getLogger(CacheService.class);
+
     private final ReactiveRedisTemplate<String, Object> redisTemplate;
     private final ReactiveStringRedisTemplate stringRedisTemplate;
     private final EventoAuditoriaRepository repository;
@@ -48,6 +56,10 @@ public class CacheService {
     private static final Duration TTL_TIMELINE = Duration.ofMinutes(30);
     private static final Duration TTL_ESTATISTICAS = Duration.ofMinutes(5);
     private static final Duration TTL_EVENTO_ANTIGO = Duration.ofHours(2);
+    
+    // Timeout configurations for safety
+    private static final Duration REDIS_TIMEOUT = Duration.ofSeconds(5);
+    private static final int MAX_CACHE_KEY_LENGTH = 250;
 
     // Cache key prefixes
     private static final String PREFIX_EVENTO = "audit:evento:";
@@ -69,36 +81,72 @@ public class CacheService {
      * Busca evento no cache primeiro, fallback para database
      */
     public Mono<EventoAuditoriaDto> buscarEventoCache(String eventoId) {
+        if (eventoId == null || eventoId.trim().isEmpty()) {
+            logger.warn("ID do evento não pode ser nulo ou vazio");
+            return Mono.empty();
+        }
+        
         String cacheKey = PREFIX_EVENTO + eventoId;
+        
+        // Validação de segurança para evitar chaves muito longas
+        if (cacheKey.length() > MAX_CACHE_KEY_LENGTH) {
+            logger.warn("Chave de cache muito longa para evento: {}", eventoId);
+            return repository.findById(eventoId).map(this::mapToDto);
+        }
         
         return redisTemplate.opsForValue()
             .get(cacheKey)
             .cast(EventoAuditoriaDto.class)
+            .timeout(REDIS_TIMEOUT)
+            .doOnNext(_ -> logger.debug("Cache hit para evento: {}", eventoId))
             .switchIfEmpty(
                 // Cache miss - buscar na database
                 repository.findById(eventoId)
                     .map(this::mapToDto)
-                    .doOnNext(evento -> cachearEvento(eventoId, evento).subscribe())
-            );
+                    .doOnNext(evento -> {
+                        logger.debug("Cache miss para evento: {}, carregando do banco", eventoId);
+                        cachearEvento(eventoId, evento).subscribe();
+                    })
+            )
+            .doOnError(error -> logger.error("Erro ao buscar evento no cache: {}", eventoId, error));
     }
 
     /**
      * Busca timeline de entidade no cache
      */
     public Flux<EventoAuditoriaDto> buscarTimelineCache(String entidadeTipo, String entidadeId) {
+        if (entidadeTipo == null || entidadeTipo.trim().isEmpty() || 
+            entidadeId == null || entidadeId.trim().isEmpty()) {
+            logger.warn("Tipo de entidade e ID da entidade são obrigatórios");
+            return Flux.empty();
+        }
+        
         String cacheKey = PREFIX_TIMELINE + entidadeTipo + ":" + entidadeId;
+        
+        // Validação de segurança para evitar chaves muito longas
+        if (cacheKey.length() > MAX_CACHE_KEY_LENGTH) {
+            logger.warn("Chave de cache muito longa para timeline: {}:{}", entidadeTipo, entidadeId);
+            return repository.getTimelineEntidade(entidadeTipo, entidadeId).map(this::mapToDto);
+        }
         
         return redisTemplate.opsForList()
             .range(cacheKey, 0, -1)
             .cast(EventoAuditoriaDto.class)
+            .timeout(REDIS_TIMEOUT)
             .switchIfEmpty(
                 // Cache miss - buscar timeline completa e cachear
                 repository.getTimelineEntidade(entidadeTipo, entidadeId)
                     .map(this::mapToDto)
                     .collectList()
-                    .doOnNext(timeline -> cachearTimeline(cacheKey, timeline).subscribe())
+                    .doOnNext(timeline -> {
+                        if (!timeline.isEmpty()) {
+                            cachearTimeline(cacheKey, timeline).subscribe();
+                        }
+                    })
                     .flatMapMany(Flux::fromIterable)
-            );
+            )
+            .doOnError(error -> logger.error("Erro ao buscar timeline no cache: {}:{}", 
+                entidadeTipo, entidadeId, error));
     }
 
     /**
@@ -118,16 +166,24 @@ public class CacheService {
      * Invalida todos os caches relacionados a um usuário
      */
     public Mono<Void> invalidarCachesUsuario(String userId) {
+        if (userId == null || userId.trim().isEmpty()) {
+            logger.warn("ID do usuário não pode ser nulo ou vazio para invalidar cache");
+            return Mono.empty();
+        }
+        
         return stringRedisTemplate.keys(PREFIX_USER_EVENTS + userId + "*")
             .flatMap(stringRedisTemplate::delete)
             .then(Mono.from(stringRedisTemplate.keys(PREFIX_TIMELINE + "*:" + userId)
                 .flatMap(stringRedisTemplate::delete)))
-            .then();
+            .then()
+            .doOnSuccess(_ -> logger.debug("Cache invalidado para usuário: {}", userId))
+            .doOnError(error -> logger.error("Erro ao invalidar cache do usuário: {}", userId, error));
     }
 
     /**
      * Obtém estatísticas de performance do cache
      */
+    @SuppressWarnings("unchecked")
     public Mono<Map<String, Object>> obterEstatisticasCache() {
         String statsKey = PREFIX_STATS + "performance";
         
@@ -146,7 +202,7 @@ public class CacheService {
     }
 
     /**
-     * Limpa todo o cache de auditoria
+     * Limpa o cache de auditoria
      */
     public Mono<Void> limparTodoCache() {
         return Flux.merge(
@@ -236,9 +292,11 @@ public class CacheService {
         Map<String, Object> metadados = null;
         try {
             if (entidade.getMetadados() != null && !entidade.getMetadados().isBlank()) {
-                metadados = objectMapper.readValue(entidade.getMetadados(), Map.class);
+                metadados = objectMapper.readValue(entidade.getMetadados(), 
+                    new TypeReference<Map<String, Object>>() {});
             }
-        } catch (Exception e) {
+        } catch (JsonProcessingException ex) {
+            logger.warn("Erro ao processar metadados do evento {}: {}", entidade.getId(), ex.getMessage());
             metadados = null;
         }
         
@@ -269,27 +327,66 @@ public class CacheService {
 
     // ========== MÉTODOS AUXILIARES DE MÉTRICAS ==========
 
-    private long contarChaves(String prefix) {
-        try {
-            return stringRedisTemplate.keys(prefix + "*")
-                .count()
-                .block(Duration.ofSeconds(2));
-        } catch (Exception e) {
-            return 0L;
-        }
+    private Mono<Long> contarChaves(String prefix) {
+        return stringRedisTemplate.keys(prefix + "*")
+            .count()
+            .onErrorReturn(0L);
     }
 
-    private double obterUsoMemoriaRedis() {
-        // Simulação - em produção usar INFO memory
-        return Math.random() * 100; // MB
+    private Mono<Double> obterUsoMemoriaRedis() {
+        // Usa o comando INFO memory do Redis para obter o uso real de memória
+        return stringRedisTemplate.execute(connection -> 
+            connection.serverCommands().info("memory")
+        )
+        .collectList()
+        .map(list -> {
+            if (list.isEmpty()) return 0.0;
+            Properties info = list.get(0);
+            String memoryInfo = info.getProperty("used_memory");
+            if (memoryInfo != null) {
+                try {
+                    return Double.parseDouble(memoryInfo) / (1024 * 1024); // bytes para MB
+                } catch (NumberFormatException e) {
+                    logger.warn("Erro ao converter uso de memória: {}", memoryInfo, e);
+                }
+            }
+            return 0.0;
+        })
+        .onErrorReturn(0.0);
     }
 
-    private double calcularHitRatio() {
-        // Simulação - em produção usar métricas reais
-        return 0.85 + (Math.random() * 0.1); // 85-95%
-    }
-
-    private int calcularTtlMedio() {
+    private Mono<Double> calcularHitRatio() {
+        // Usa o comando INFO stats do Redis para obter hits e misses reais
+        return stringRedisTemplate.execute(connection -> 
+            connection.serverCommands().info("stats")
+        )
+        .collectList()
+        .map(list -> {
+            if (list.isEmpty()) return 0.0;
+            Properties info = list.get(0);
+            long hits = 0;
+            long misses = 0;
+            
+            String hitsStr = info.getProperty("keyspace_hits");
+            String missesStr = info.getProperty("keyspace_misses");
+            
+            try {
+                if (hitsStr != null) {
+                    hits = Long.parseLong(hitsStr);
+                }
+                if (missesStr != null) {
+                    misses = Long.parseLong(missesStr);
+                }
+            } catch (NumberFormatException e) {
+                logger.warn("Erro ao converter estatísticas Redis: hits={}, misses={}", hitsStr, missesStr, e);
+                return 0.0;
+            }
+            
+            long total = hits + misses;
+            return total == 0 ? 1.0 : (double) hits / total;
+        })
+        .onErrorReturn(0.0);
+    }private int calcularTtlMedio() {
         // TTL médio baseado nas configurações
         return (int) ((TTL_EVENTO_RECENTE.toSeconds() + TTL_TIMELINE.toSeconds()) / 2);
     }

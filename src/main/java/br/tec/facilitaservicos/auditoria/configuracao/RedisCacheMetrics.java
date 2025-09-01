@@ -7,6 +7,7 @@ import io.micrometer.core.instrument.Gauge;
 import org.springframework.data.redis.cache.RedisCacheManager;
 import org.springframework.data.redis.connection.RedisConnection;
 import org.springframework.data.redis.connection.RedisConnectionFactory;
+import org.springframework.data.redis.connection.ReturnType;
 import org.springframework.data.redis.core.RedisCallback;
 import org.springframework.data.redis.core.RedisTemplate;
 
@@ -68,25 +69,25 @@ public class RedisCacheMetrics {
         this.activeAuditSessions = new AtomicLong(0);
         
         // Gauges para métricas em tempo real específicas de auditoria
-        Gauge.builder("audit.events.cached")
+        Gauge.builder("audit.events.cached", totalAuditEvents, AtomicLong::doubleValue)
                 .description("Total de eventos de auditoria em cache")
                 .tag("service", applicationName)
-                .register(meterRegistry, totalAuditEvents, AtomicLong::get);
+                .register(meterRegistry);
                 
-        Gauge.builder("audit.reports.cached")
+        Gauge.builder("audit.reports.cached", totalReportsInCache, AtomicLong::doubleValue)
                 .description("Total de relatórios em cache")
                 .tag("service", applicationName)
-                .register(meterRegistry, totalReportsInCache, AtomicLong::get);
+                .register(meterRegistry);
                 
-        Gauge.builder("compliance.violations")
+        Gauge.builder("compliance.violations", complianceViolations, AtomicLong::doubleValue)
                 .description("Violações de compliance detectadas")
                 .tag("service", applicationName)
-                .register(meterRegistry, complianceViolations, AtomicLong::get);
+                .register(meterRegistry);
                 
-        Gauge.builder("audit.sessions.active")
+        Gauge.builder("audit.sessions.active", activeAuditSessions, AtomicLong::doubleValue)
                 .description("Sessões de auditoria ativas")
                 .tag("service", applicationName)
-                .register(meterRegistry, activeAuditSessions, AtomicLong::get);
+                .register(meterRegistry);
     }
 
     public RedisCacheManager instrumentedCacheManager() {
@@ -136,15 +137,15 @@ public class RedisCacheMetrics {
         try {
             // Contagem de chaves específicas de auditoria
             Long auditEventKeys = redisTemplate.execute((RedisCallback<Long>) connection -> 
-                connection.eval("return #redis.call('keys', ARGV[1])", 0, (applicationName + ":audit:eventos:*").getBytes())
+                connection.eval("return #redis.call('keys', ARGV[1])".getBytes(), ReturnType.INTEGER, 1, (applicationName + ":audit:eventos:*").getBytes())
             );
             
             Long reportKeys = redisTemplate.execute((RedisCallback<Long>) connection -> 
-                connection.eval("return #redis.call('keys', ARGV[1])", 0, (applicationName + ":audit:relatorios:*").getBytes())
+                connection.eval("return #redis.call('keys', ARGV[1])".getBytes(), ReturnType.INTEGER, 1, (applicationName + ":audit:relatorios:*").getBytes())
             );
             
             Long sessionKeys = redisTemplate.execute((RedisCallback<Long>) connection -> 
-                connection.eval("return #redis.call('keys', ARGV[1])", 0, (applicationName + ":audit:sessoes-auditoria:*").getBytes())
+                connection.eval("return #redis.call('keys', ARGV[1])".getBytes(), ReturnType.INTEGER, 1, (applicationName + ":audit:sessoes-auditoria:*").getBytes())
             );
             
             if (auditEventKeys != null) {

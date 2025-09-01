@@ -1,5 +1,7 @@
 package br.tec.facilitaservicos.auditoria.dominio.enums;
 
+import io.swagger.v3.oas.annotations.media.Schema;
+
 /**
  * ============================================================================
  * 📋 NÍVEIS DE SEVERIDADE PARA AUDITORIA
@@ -28,30 +30,35 @@ public enum NivelSeveridade {
      * DEBUG - Informações técnicas detalhadas
      * Ex: Trace de execução, valores de variáveis
      */
+    @Schema(description = "Informações técnicas detalhadas para depuração")
     DEBUG(0, "debug", "Debug", false, false),
     
     /**
      * INFO - Informações gerais de operação
      * Ex: Login bem-sucedido, operação completada
      */
+    @Schema(description = "Informações gerais de operação")
     INFO(1, "info", "Informativo", false, false),
     
     /**
      * WARN - Situações que requerem atenção
      * Ex: Tentativas de login falhadas, limites próximos
      */
+    @Schema(description = "Situações que requerem atenção")
     WARN(2, "warn", "Aviso", true, false),
     
     /**
      * ERROR - Erros que afetam operação
      * Ex: Falhas de integração, exceções não tratadas
      */
+    @Schema(description = "Erros que afetam operação")
     ERROR(3, "error", "Erro", true, true),
     
     /**
      * CRITICAL - Situações críticas de segurança/sistema
      * Ex: Tentativas de intrusão, corrupção de dados
      */
+    @Schema(description = "Situações críticas de segurança/sistema")
     CRITICAL(4, "critical", "Crítico", true, true);
 
     private final int nivel;
