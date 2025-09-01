@@ -314,6 +314,42 @@ spring:
     user: ${DB_USERNAME}
     password: ${DB_PASSWORD}
     
+  # Redis Configuration for audit caching
+  data:
+    redis:
+      host: ${REDIS_HOST:localhost}
+      port: ${REDIS_PORT:6379}
+      password: ${REDIS_PASSWORD:}
+      database: ${REDIS_DB:5}  # DB 5 para auditoria
+      timeout: 3000ms
+      connect-timeout: 10000ms
+      lettuce:
+        pool:
+          enabled: true
+          max-active: 25
+          max-idle: 8
+          min-idle: 3
+          max-wait: 3000ms
+          time-between-eviction-runs: 60000ms
+        cluster:
+          refresh:
+            adaptive: true
+            period: 30s
+      client-type: lettuce
+  cache:
+    type: redis
+    redis:
+      time-to-live: 3600000ms
+      cache-null-values: false
+      use-key-prefix: true
+    cache-names:
+      - audit:eventos
+      - audit:relatorios
+      - audit:metadados
+      - audit:configuracoes-compliance
+      - audit:usuarios-auditoria
+      - audit:sessoes-auditoria
+    
 server:
   port: 8085
   ssl:
