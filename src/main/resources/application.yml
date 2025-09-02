@@ -1,5 +1,29 @@
 spring:
+  application:
+    name: auditoria-compliance
+    
+  profiles:
+    default: prod
+    
+  main:
+    allow-bean-definition-overriding: true
+    
+  # Azure Key Vault with manual configuration
+  cloud:
+    azure:
+      keyvault:
+        secret:
+          enabled: ${AZURE_KEYVAULT_ENABLED:true}
+          endpoint: ${AZURE_KEYVAULT_ENDPOINT:}
+      profile:
+        tenant-id: ${AZURE_TENANT_ID:}
+        subscription-id: ${AZURE_SUBSCRIPTION_ID:}
+        client-id: ${AZURE_CLIENT_ID:}
+
   r2dbc:
+    url: ${conexao-de-sorte-database-r2dbc-url:r2dbc:mysql://localhost:3306/conexao_sorte_audit?useSSL=true&allowPublicKeyRetrieval=true}
+    username: ${conexao-de-sorte-database-username:}
+    password: ${conexao-de-sorte-database-password:}
     pool:
       initial-size: 5
       max-size: 20
@@ -10,6 +34,23 @@ spring:
       max-create-connection-time: 5s # Tempo máximo para criar uma nova conexão
       # Configurações de logging para o pool (para depuração)
       # enable-logging: true # Descomente para habilitar logging detalhado do pool
+
+server:
+  port: ${conexao-de-sorte-server-port:8084}
+  shutdown: graceful
+  
+  # SSL/TLS Configuration
+  ssl:
+    enabled: ${conexao-de-sorte-ssl-enabled:false}
+    key-store: ${conexao-de-sorte-ssl-keystore-path:}
+    key-store-password: ${conexao-de-sorte-ssl-keystore-password:}
+    key-store-type: PKCS12
+    
+  error:
+    include-message: never
+    include-binding-errors: never
+    include-stacktrace: never
+    include-exception: false
 
 management:
   endpoints:
