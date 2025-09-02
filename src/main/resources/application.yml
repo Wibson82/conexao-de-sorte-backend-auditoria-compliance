@@ -20,6 +20,15 @@ spring:
         subscription-id: ${AZURE_SUBSCRIPTION_ID:}
         client-id: ${AZURE_CLIENT_ID:}
 
+  # OAuth2 Resource Server - JWT validation via JWKS
+  security:
+    oauth2:
+      resourceserver:
+        jwt:
+          jwk-set-uri: ${JWT_JWKS_URI:http://localhost:8081/.well-known/jwks.json}
+          issuer-uri: ${JWT_ISSUER:https://auth.conexaodesorte.com}
+          audience: ${JWT_AUDIENCE:conexao-de-sorte}
+
   r2dbc:
     url: ${conexao-de-sorte-database-r2dbc-url:r2dbc:mysql://localhost:3306/conexao_sorte_audit?useSSL=true&allowPublicKeyRetrieval=true}
     username: ${conexao-de-sorte-database-username:}
