@@ -358,13 +358,9 @@ class R2dbcConfigTransacaoTest {
         @DisplayName("Deve lidar com timeout de transação")
         void deveLidarComTimeoutDeTransacao() {
             // Given
-            org.springframework.transaction.reactive.TransactionDefinition txDefinition = 
-                new org.springframework.transaction.support.DefaultTransactionDefinition() {
-                    @Override
-                    public int getTimeout() {
-                        return 1; // 1 segundo de timeout
-                    }
-                };
+            org.springframework.transaction.support.DefaultTransactionDefinition txDefinition = 
+                new org.springframework.transaction.support.DefaultTransactionDefinition();
+            txDefinition.setTimeout(1); // 1 segundo de timeout
             
             TransactionalOperator transactionalOperator = TransactionalOperator.create(transactionManager, txDefinition);
             

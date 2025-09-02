@@ -168,7 +168,15 @@ class EventoAuditoriaServiceTest {
         void deveRegistrarEventoComSucesso() throws Exception {
             // Given
             when(repository.findUltimoEventoComHash())
-                .thenReturn(Mono.just(eventoEntity.toBuilder().hashEvento(hashAnterior).build()));
+                .thenReturn(Mono.just(EventoAuditoriaR2dbc.builder()
+                    .id(eventoEntity.getId())
+                    .tipoEvento(eventoEntity.getTipoEvento())
+                    .severidade(eventoEntity.getSeveridade())
+                    .usuario(eventoEntity.getUsuarioId(), eventoEntity.getUsuarioNome())
+                    .entidade(eventoEntity.getEntidadeTipo(), eventoEntity.getEntidadeId(), eventoEntity.getEntidadeNome())
+                    .acao(eventoEntity.getAcaoRealizada())
+                    .dados(eventoEntity.getDadosAntes(), eventoEntity.getDadosDepois())
+                    .build()));
             when(objectMapper.writeValueAsString(any()))
                 .thenReturn("{\"status\":\"offline\"}", "{\"status\":\"online\"}", "{\"origem\":\"web\"}");
             when(hashService.calcularHashEvento(any()))
