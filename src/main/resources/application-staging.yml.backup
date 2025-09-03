@@ -78,21 +78,28 @@ management:
   health:
     redis:
       enabled: true
-  prometheus:
-    metrics:
-      export:
+    r2dbc:
+      enabled: true
+  metrics:
+    export:
+      prometheus:
         enabled: true
         step: 30s
+    distribution:
+      percentiles-histogram:
+        http.server.requests: true
+      percentiles:
+        http.server.requests: 0.5,0.95,0.99
 
 # ===== LOGGING ENHANCED FOR STAGING =====
 logging:
   level:
     root: INFO
-    "[br.tec.facilitaservicos.auditoria]": DEBUG
-    "[org.springframework.security]": DEBUG
-    "[org.springframework.r2dbc]": INFO
-    "[org.springframework.data.redis]": DEBUG
-    "[org.springframework.web.reactive]": DEBUG
+    br.tec.facilitaservicos.auditoria: DEBUG
+    org.springframework.security: DEBUG
+    org.springframework.r2dbc: INFO
+    org.springframework.data.redis: DEBUG
+    org.springframework.web.reactive: DEBUG
   pattern:
     console: "%clr(%d{yyyy-MM-dd HH:mm:ss.SSS}){faint} %clr(%5p) %clr(${PID:- }){magenta} %clr(---){faint} %clr([%15.15t]){faint} %clr(%-40.40logger{39}){cyan} %clr(:){faint} [STAGING] %m%n%wEx"
     file: "%d{yyyy-MM-dd HH:mm:ss.SSS} [%thread] %-5level %logger{50} - [STAGING] %msg%n"
@@ -101,6 +108,55 @@ logging:
     max-size: 100MB
     max-history: 30
 
+# ===== CORS PERMISSIVO PARA STAGING =====
+cors:
+  allowed-origins: 
+    - "http://localhost:3000"
+    - "https://staging.conexaodesorte.com"
+  allowed-methods: "*"
+  allowed-headers: "*"
+  allow-credentials: true
+  max-age: 3600
+
+# ===== CONFIGURAÇÕES ESPECÍFICAS DO MICROSERVIÇO =====
+app:
+  microservice:
+    name: auditoria-staging
+    version: @project.version@
+    
+  auditoria:
+    features:
+      real-time-monitoring: true
+      compliance-reports: true
+      integrity-validation: true
+      digital-signatures: true
+      
+    cache:
+      event-cache-ttl: 300s  # 5 minutos
+      report-cache-ttl: 900s  # 15 minutos
+      
+    api:
+      rate-limit:
+        enabled: true
+        requests-per-minute: 500
+        
+    validation:
+      hash-chain-validation: true
+      signature-verification: true
+      
+    retention:
+      event-retention-days: 2555  # 7 anos para compliance
+      report-retention-days: 365   # 1 ano para relatórios
+
+# ===== INTEGRAÇÃO COM OUTROS MICROSERVIÇOS =====
+services:
+  crypto:
+    url: http://crypto-service:8086
+    timeout: 10s
+  user:
+    url: http://user-service:8089
+    timeout: 5s
+    
 # ===== DEBUG & DESENVOLVIMENTO =====
 debug: true
 

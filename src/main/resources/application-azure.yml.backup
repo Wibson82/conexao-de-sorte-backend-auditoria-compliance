@@ -1,0 +1,472 @@
+# =============================================================================
+# CONFIGURAÇÃO AZURE KEY VAULT - AUDITORIA COMPLIANCE MICROSERVICE
+# =============================================================================
+# Microserviço responsável pela auditoria, compliance e logs de segurança
+# Compatível com Spring Boot 3.5.5 e Spring Cloud Azure
+# =============================================================================
+
+spring:
+  config:
+    activate:
+      on-profile: azure
+    import:
+      - "optional:configtree:/run/secrets/"
+
+  # ===== SPRING CLOUD AZURE - Spring Boot 3.5.5 =====
+  cloud:
+    azure:
+      keyvault:
+        secret:
+          enabled: false  # Usando configtree para maior segurança
+
+  # ===== R2DBC DATABASE CONFIGURATION =====
+  r2dbc:
+    url: ${conexao-de-sorte-database-r2dbc-url:r2dbc:mysql://conexao-mysql:3306/conexao_de_sorte?useSSL=false&allowPublicKeyRetrieval=true&serverTimezone=America/Sao_Paulo}
+    username: ${conexao-de-sorte-database-username:audit_user}
+    password: ${conexao-de-sorte-database-password:}
+    pool:
+      enabled: true
+      initial-size: 10
+      max-size: 50
+      max-idle-time: 30m
+      max-acquire-time: 60s
+      # Configurações específicas para auditoria (volume alto de dados)
+      max-create-connection-time: 10s
+      validation-query: "SELECT 1"
+
+  # ===== FLYWAY FOR MIGRATIONS =====
+  flyway:
+    enabled: true
+    url: ${conexao-de-sorte-database-jdbc-url:jdbc:mysql://conexao-mysql:3306/conexao_de_sorte?useSSL=false&allowPublicKeyRetrieval=true&serverTimezone=America/Sao_Paulo}
+    user: ${conexao-de-sorte-database-username:audit_user}
+    password: ${conexao-de-sorte-database-password:}
+    locations: classpath:db/migration
+    baseline-on-migrate: true
+    validate-on-migrate: false
+
+  # ===== REDIS CONFIGURATION =====
+  data:
+    redis:
+      host: ${conexao-de-sorte-redis-host:localhost}
+      port: ${conexao-de-sorte-redis-port:6379}
+      password: ${conexao-de-sorte-redis-password:}
+      database: ${conexao-de-sorte-redis-database:0}
+      timeout: 2s
+      lettuce:
+        pool:
+          enabled: true
+          max-active: 20
+          max-idle: 8
+          min-idle: 2
+
+  # ===== SECURITY CONFIGURATION =====
+  security:
+    oauth2:
+      resourceserver:
+        jwt:
+          jwk-set-uri: ${conexao-de-sorte-jwt-jwks-uri:http://localhost:8081/.well-known/jwks.json}
+          issuer-uri: ${conexao-de-sorte-jwt-issuer:https://conexaodesorte.com.br}
+          audience: ${JWT_AUDIENCE:conexao-de-sorte-frontend-app}
+
+# ===== MICROSERVICE SPECIFIC CONFIG =====
+app:
+  microservice:
+    name: auditoria-compliance
+    version: @project.version@
+    description: "Microserviço de auditoria, compliance e monitoramento"
+  
+  # JWT Configuration - CONSUMO APENAS (via configtree)
+  jwt:
+    # Configuração para validação de tokens para endpoints de auditoria
+    signing-key: ${conexao-de-sorte-jwt-signing-key:}
+    verification-key: ${conexao-de-sorte-jwt-verification-key:}
+    key-id: ${conexao-de-sorte-jwt-key-id:}
+    secret: ${conexao-de-sorte-jwt-secret:}
+    issuer: ${conexao-de-sorte-jwt-issuer:https://conexaodesorte.com.br}
+    audience: conexao-de-sorte-frontend-app
+    algorithm: RS256
+    validation:
+      enabled: true
+      strict-mode: true
+      audit-enabled: true  # Log todas as validações de token
+
+  # Criptografia para dados sensíveis de auditoria
+  encryption:
+    master-key: ${conexao-de-sorte-encryption-master-key:}
+    master-password: ${conexao-de-sorte-encryption-master-password:}
+    backup-key: ${conexao-de-sorte-encryption-backup-key:}
+    algorithm: AES-256-GCM
+    # Configurações específicas para logs de auditoria
+    audit-data:
+      encrypt-pii: true  # Criptografar dados pessoais
+      encrypt-sensitive: true  # Criptografar dados sensíveis
+      encryption-level: HIGH
+
+  # Auditoria - ESPECIALIDADE DESTE MICROSERVIÇO
+  auditoria:
+    # Configurações de captura
+    capture:
+      enabled: true
+      include-request-body: false  # Por segurança
+      include-response-body: false
+      include-headers: true
+      include-ip: true
+      include-user-agent: true
+      
+    # Retenção de dados
+    retention:
+      default-days: 365  # 1 ano
+      critical-days: 2555  # 7 anos para dados críticos
+      personal-data-days: 30  # LGPD compliance
+      
+    # Níveis de auditoria
+    levels:
+      authentication: HIGH
+      authorization: HIGH
+      data-access: MEDIUM
+      data-modification: HIGH
+      system-changes: CRITICAL
+      errors: HIGH
+      
+    # Filtros
+    filters:
+      exclude-health-checks: true
+      exclude-metrics: true
+      exclude-static-resources: true
+      
+    # Alertas
+    alerts:
+      enabled: true
+      critical-events: true
+      failed-login-threshold: 5
+      data-breach-detection: true
+      unusual-activity: true
+
+  # Compliance (LGPD/GDPR)
+  compliance:
+    lgpd:
+      enabled: true
+      data-retention-check: true
+      consent-tracking: true
+      data-portability: true
+      erasure-requests: true
+      
+    gdpr:
+      enabled: true
+      privacy-by-design: true
+      
+    # Relatórios de compliance
+    reports:
+      enabled: true
+      schedule: "0 0 1 * *"  # Primeiro dia do mês
+      retention-days: 2555  # 7 anos
+      encryption-required: true
+
+  # Monitoramento de segurança
+  security:
+    monitoring:
+      brute-force-detection: true
+      sql-injection-detection: true
+      xss-detection: true
+      anomaly-detection: true
+      
+    # Integração com SIEM (futuro)
+    siem:
+      enabled: false
+      endpoint: ${SIEM_ENDPOINT:}
+      api-key: ${SIEM_API_KEY:}
+
+# ===== CORS CONFIGURATION =====
+cors:
+  allowed-origins: ${conexao-de-sorte-cors-allowed-origins:https://conexaodesorte.com.br,https://www.conexaodesorte.com.br,https://app.conexaodesorte.com.br}
+  allow-credentials: ${conexao-de-sorte-cors-allow-credentials:true}
+  allowed-methods: GET,POST,PUT,DELETE,OPTIONS
+  allowed-headers: "*"
+  max-age: 3600
+
+# ===== LOGGING ESPECÍFICO PARA AUDITORIA =====
+logging:
+  level:
+    '[com.azure]': INFO
+    '[com.azure.security.keyvault]': INFO
+    '[org.springframework.cloud.azure]': INFO
+    '[br.tec.facilitaservicos.auditoria]': DEBUG
+    '[org.springframework.security]': INFO
+    '[org.springframework.web.filter]': DEBUG  # Para audit trails
+    '[org.springframework.r2dbc]': INFO
+    '[io.r2dbc.pool]': INFO
+    
+  # Configuração específica para logs de auditoria
+  pattern:
+    console: "[%d{yyyy-MM-dd HH:mm:ss}] [%thread] %-5level [%logger{36}] [AUDIT] - %msg%n"
+    file: "[%d{yyyy-MM-dd HH:mm:ss}] [%thread] %-5level [%logger{36}] [AUDIT] [%X{traceId}] [%X{userId}] [%X{sessionId}] - %msg%n"
+  
+  # Arquivo específico para auditoria
+  file:
+    name: /app/logs/auditoria.log
+    max-size: 100MB
+    max-history: 90
+
+# ===== MANAGEMENT ENDPOINTS - Spring Boot 3.5.5 =====
+management:
+  endpoints:
+    web:
+      exposure:
+        include: health,info,metrics,prometheus,audittrail
+      exclude: env,configprops,beans,conditions,mappings,threaddump,heapdump,startup
+      base-path: /actuator
+  endpoint:
+    health:
+      show-details: when-authorized
+      roles: ADMIN
+    info:
+      enabled: true
+    env:
+      enabled: false
+    configprops:
+      enabled: false
+    beans:
+      enabled: false
+    conditions:
+      enabled: false
+    mappings:
+      enabled: false
+    threaddump:
+      enabled: false
+    heapdump:
+      enabled: false
+    startup:
+      enabled: false
+  health:
+    r2dbc:
+      enabled: true
+    redis:
+      enabled: true
+  # Métricas específicas de auditoria
+  metrics:
+    export:
+      prometheus:
+        enabled: true
+    tags:
+      service: auditoria-compliance
+      version: @project.version@
+
+# ===== SECURITY AUDIT LOGGING - ENHANCED =====
+security:
+  audit:
+    enabled: true
+    include-request-details: true
+    include-client-info: true
+    log-authentication-success: true
+    log-authentication-failure: true
+    log-authorization-failure: true
+    audit-all-requests: true  # Log ALL requests for audit microservice
+    include-sensitive-data: false  # Never log sensitive data in plain text
+    encrypt-audit-logs: true  # Encrypt audit logs with master key
+
+# ===== SERVER CONFIGURATION =====
+server:
+  port: ${SERVER_PORT:8084}
+  shutdown: graceful
+  servlet:
+    context-path: /api/v1/auditoria
+  compression:
+    enabled: true
+  http2:
+    enabled: true
+  ssl:
+    enabled: ${conexao-de-sorte-ssl-enabled:false}
+    key-store: ${conexao-de-sorte-ssl-keystore-path:}
+    key-store-password: ${conexao-de-sorte-ssl-keystore-password:}
+    key-store-type: PKCS12
+
+# ===== MICROSERVICE SPECIFIC CONFIG =====
+app:
+  microservice:
+    name: auditoria-compliance
+    version: @project.version@
+    description: "Microserviço de auditoria, compliance e monitoramento"
+  
+  # JWT Configuration - CONSUMO APENAS (via configtree)
+  jwt:
+    # Configuração para validação de tokens para endpoints de auditoria
+    signing-key: ${JWT_SIGNING_KEY:}
+    verification-key: ${JWT_VERIFICATION_KEY:}
+    key-id: ${JWT_KEY_ID:}
+    secret: ${JWT_SECRET:}
+    issuer: https://conexaodesorte.com.br
+    audience: conexao-de-sorte-frontend-app
+    algorithm: RS256
+    validation:
+      enabled: true
+      strict-mode: true
+      audit-enabled: true  # Log todas as validações de token
+
+  # Criptografia para dados sensíveis de auditoria
+  encryption:
+    master-key: ${ENCRYPTION_MASTER_KEY:}
+    algorithm: AES-256-GCM
+    # Configurações específicas para logs de auditoria
+    audit-data:
+      encrypt-pii: true  # Criptografar dados pessoais
+      encrypt-sensitive: true  # Criptografar dados sensíveis
+      encryption-level: HIGH
+
+  # Auditoria - ESPECIALIDADE DESTE MICROSERVIÇO
+  auditoria:
+    # Configurações de captura
+    capture:
+      enabled: true
+      include-request-body: false  # Por segurança
+      include-response-body: false
+      include-headers: true
+      include-ip: true
+      include-user-agent: true
+      
+    # Retenção de dados
+    retention:
+      default-days: 365  # 1 ano
+      critical-days: 2555  # 7 anos para dados críticos
+      personal-data-days: 30  # LGPD compliance
+      
+    # Níveis de auditoria
+    levels:
+      authentication: HIGH
+      authorization: HIGH
+      data-access: MEDIUM
+      data-modification: HIGH
+      system-changes: CRITICAL
+      errors: HIGH
+      
+    # Filtros
+    filters:
+      exclude-health-checks: true
+      exclude-metrics: true
+      exclude-static-resources: true
+      
+    # Alertas
+    alerts:
+      enabled: true
+      critical-events: true
+      failed-login-threshold: 5
+      data-breach-detection: true
+      unusual-activity: true
+
+  # Compliance (LGPD/GDPR)
+  compliance:
+    lgpd:
+      enabled: true
+      data-retention-check: true
+      consent-tracking: true
+      data-portability: true
+      erasure-requests: true
+      
+    gdpr:
+      enabled: true
+      privacy-by-design: true
+      
+    # Relatórios de compliance
+    reports:
+      enabled: true
+      schedule: "0 0 1 * *"  # Primeiro dia do mês
+      retention-days: 2555  # 7 anos
+      encryption-required: true
+
+  # Monitoramento de segurança
+  security:
+    monitoring:
+      brute-force-detection: true
+      sql-injection-detection: true
+      xss-detection: true
+      anomaly-detection: true
+      
+    # Integração com SIEM (futuro)
+    siem:
+      enabled: false
+      endpoint: ${SIEM_ENDPOINT:}
+      api-key: ${SIEM_API_KEY:}
+
+# ===== LOGGING ESPECÍFICO PARA AUDITORIA =====
+logging:
+  level:
+    '[com.azure]': INFO
+    '[com.azure.security.keyvault]': INFO
+    '[org.springframework.cloud.azure]': INFO
+    '[br.tec.facilitaservicos.auditoria]': DEBUG
+    '[org.springframework.security]': INFO
+    '[org.springframework.web.filter]': DEBUG  # Para audit trails
+    
+  # Configuração específica para logs de auditoria
+  pattern:
+    console: "[%d{yyyy-MM-dd HH:mm:ss}] [%thread] %-5level [%logger{36}] [AUDIT] - %msg%n"
+    file: "[%d{yyyy-MM-dd HH:mm:ss}] [%thread] %-5level [%logger{36}] [AUDIT] [%X{traceId}] [%X{userId}] [%X{sessionId}] - %msg%n"
+  
+  # Arquivo específico para auditoria
+  file:
+    name: /app/logs/auditoria.log
+    max-size: 100MB
+    max-history: 90
+
+# ===== MANAGEMENT ENDPOINTS - HARDENED =====
+management:
+  endpoints:
+    web:
+      exposure:
+        include: health,info,metrics,prometheus,audittrail
+      exclude: env,configprops,beans,conditions,mappings,threaddump,heapdump,startup
+  endpoint:
+    health:
+      show-details: when_authorized
+      roles: ADMIN
+    info:
+      enabled: true
+    env:
+      enabled: false
+    configprops:
+      enabled: false
+    beans:
+      enabled: false
+    conditions:
+      enabled: false
+    mappings:
+      enabled: false
+    threaddump:
+      enabled: false
+    heapdump:
+      enabled: false
+    startup:
+      enabled: false
+  health:
+    db:
+      enabled: true
+  # Métricas específicas de auditoria
+  metrics:
+    export:
+      prometheus:
+        enabled: true
+    tags:
+      service: auditoria-compliance
+      version: @project.version@
+
+# ===== SECURITY AUDIT LOGGING - ENHANCED =====
+security:
+  audit:
+    enabled: true
+    include-request-details: true
+    include-client-info: true
+    log-authentication-success: true
+    log-authentication-failure: true
+    log-authorization-failure: true
+    audit-all-requests: true  # Log ALL requests for audit microservice
+    include-sensitive-data: false  # Never log sensitive data in plain text
+    encrypt-audit-logs: true  # Encrypt audit logs with master key
+
+# ===== SERVER CONFIGURATION =====
+server:
+  port: ${SERVER_PORT:8082}
+  servlet:
+    context-path: /rest/v1/audit
+  compression:
+    enabled: true
+  http2:
+    enabled: true

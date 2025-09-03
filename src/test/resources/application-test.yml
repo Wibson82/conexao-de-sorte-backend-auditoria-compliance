@@ -1,27 +1,74 @@
+# =============================================================================
+# CONFIGURAÇÃO TESTES - AUDITORIA COMPLIANCE MICROSERVICE
+# =============================================================================
+# Perfil otimizado para testes unitários e integração
+# Compatível com Spring Boot 3.5.5
+# =============================================================================
+
 spring:
+  application:
+    name: auditoria-test
+    
+  # ===== R2DBC TEST DATABASE - H2 IN-MEMORY =====
   r2dbc:
-    url: r2dbc:h2:mem:///auditoria_test;DB_CLOSE_DELAY=-1;MODE=MySQL
+    url: r2dbc:h2:mem:///auditoria_test;DB_CLOSE_DELAY=-1;MODE=MySQL;DATABASE_TO_LOWER=TRUE
     username: sa
     password: ""
+    pool:
+      enabled: true
+      initial-size: 1
+      max-size: 5
+      max-idle-time: 10m
     
+  # ===== FLYWAY DISABLED FOR TESTS =====
   flyway:
-    enabled: false  # Desabilitar Flyway em testes
+    enabled: false  # Schema criado via @Sql scripts
     
+  # ===== REDIS EMBEDDED FOR TESTS =====
+  data:
+    redis:
+      host: localhost
+      port: 6370  # Porta diferente para testes
+      timeout: 1s
+      lettuce:
+        pool:
+          enabled: false  # Simplificado para testes
+          
+  # ===== SECURITY CONFIGURATION FOR TESTS =====
   security:
     oauth2:
       resourceserver:
         jwt:
           jwk-set-uri: http://localhost:8081/.well-known/jwks.json
-          
-audit:
-  capture:
-    enabled: false
-    
-compliance:
-  reports:
-    enabled: false
-    
+          issuer-uri: https://test.conexaodesorte.com
+
+# ===== SERVER CONFIGURATION FOR TESTS =====
+server:
+  port: 0  # Random port for tests
+  servlet:
+    context-path: /api/v1/auditoria
+
+# ===== MANAGEMENT ENDPOINTS FOR TESTS =====
+management:
+  endpoints:
+    web:
+      exposure:
+        include: health,info
+  endpoint:
+    health:
+      show-details: always
+  health:
+    redis:
+      enabled: false  # Pode não estar disponível em testes
+
+# ===== LOGGING CONFIGURATION FOR TESTS =====
 logging:
   level:
     root: WARN
-    br.tec.facilitaservicos.auditoria: DEBUG
+    "[br.tec.facilitaservicos.auditoria]": DEBUG
+    "[org.springframework.test]": INFO
+    "[org.springframework.r2dbc]": WARN
+    "[org.springframework.security]": WARN
+    "[org.testcontainers]": INFO
+  pattern:
+    console: "%d{HH:mm:ss.SSS} [%thread] %-5level %logger{36} - [TEST] %msg%n"
