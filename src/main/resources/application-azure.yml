@@ -62,7 +62,7 @@ spring:
 
 # ===== SERVER CONFIGURATION =====
 server:
-  port: ${conexao-de-sorte-server-port:8084}
+  port: ${conexao-de-sorte-server-port:8085}
   shutdown: graceful
 
   # SSL/TLS Configuration
