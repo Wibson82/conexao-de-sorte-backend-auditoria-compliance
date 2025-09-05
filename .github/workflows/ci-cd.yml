@@ -16,9 +16,9 @@ on:
 
 env:
   REGISTRY: ghcr.io
-  IMAGE_NAME: ${{ github.repository }}
+  IMAGE_NAME: wibson82/conexao-de-sorte-backend-auditoria-compliance
   SERVICE_NAME: auditoria-compliance
-  TZ: America/Sao_ Paulo
+  TZ: America/Sao_Paulo
 
 concurrency:
   group: ${{ github.workflow }}-${{ github.ref }}-${{ github.event_name == 'workflow_dispatch' && inputs.environment || 'production' }}
