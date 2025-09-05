@@ -16,7 +16,7 @@ on:
 
 env:
   REGISTRY: ghcr.io
-  IMAGE_NAME: wibson82/conexao-de-sorte-backend-auditoria-compliance
+  IMAGE_NAME: ${{ github.repository }}
   SERVICE_NAME: auditoria-compliance
   TZ: America/Sao_Paulo
 

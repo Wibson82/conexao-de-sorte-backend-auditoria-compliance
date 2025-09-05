@@ -15,7 +15,7 @@ spring:
   # ===== R2DBC DATABASE CONFIGURATION =====
   r2dbc:
     # Preferencialmente usa -database-r2dbc-url; mantém compat com -database-url
-    url: ${conexao-de-sorte-database-r2dbc-url:${conexao-de-sorte-database-url:r2dbc:mysql://conexao-mysql:3306/conexao_de_sorte?useSSL=false&allowPublicKeyRetrieval=true&serverTimezone=America/Sao_Paulo}}
+    url: ${conexao-de-sorte-database-r2dbc-url:${conexao-de-sorte-database-url:r2dbc:mysql://mysql-proxy:6033/conexao_de_sorte?useSSL=true&allowPublicKeyRetrieval=false&serverTimezone=America/Sao_Paulo}}
     username: ${conexao-de-sorte-database-username:audit_user}
     password: ${conexao-de-sorte-database-password:}
     pool:
@@ -30,7 +30,7 @@ spring:
   # ===== FLYWAY FOR MIGRATIONS =====
   flyway:
     enabled: true
-    url: ${conexao-de-sorte-database-jdbc-url:jdbc:mysql://conexao-mysql:3306/conexao_de_sorte?useSSL=false&allowPublicKeyRetrieval=true&serverTimezone=America/Sao_Paulo}
+    url: ${conexao-de-sorte-database-jdbc-url:jdbc:mysql://mysql-proxy:6033/conexao_de_sorte?useSSL=true&allowPublicKeyRetrieval=false&serverTimezone=America/Sao_Paulo}
     user: ${conexao-de-sorte-database-username:audit_user}
     password: ${conexao-de-sorte-database-password:}
     locations: classpath:db/migration
