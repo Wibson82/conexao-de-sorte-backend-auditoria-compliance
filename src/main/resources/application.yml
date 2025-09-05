@@ -8,23 +8,17 @@ spring:
   main:
     allow-bean-definition-overriding: true
     
-  # Azure Key Vault Configuration
+  # Azure Key Vault (padrão simplificado)
   cloud:
     azure:
       keyvault:
         secret:
           enabled: ${AZURE_KEYVAULT_ENABLED:true}
           endpoint: ${AZURE_KEYVAULT_ENDPOINT:}
-          property-sources:
-            - name: ${AZURE_KEYVAULT_NAME:conexao-de-sorte-keyvault}
-              endpoint: ${AZURE_KEYVAULT_ENDPOINT:}
-              case-sensitive: false
       profile:
         tenant-id: ${AZURE_TENANT_ID:}
         subscription-id: ${AZURE_SUBSCRIPTION_ID:}
-      credential:
         client-id: ${AZURE_CLIENT_ID:}
-        managed-identity-enabled: false
 
   # OAuth2 Resource Server - JWT validation via JWKS
   security:
@@ -74,7 +68,7 @@ spring:
     validate-on-migrate: false
 
 server:
-  port: ${SERVER_PORT:8085}
+  port: ${conexao-de-sorte-server-port:8085}
   shutdown: graceful
   
   # SSL/TLS Configuration
