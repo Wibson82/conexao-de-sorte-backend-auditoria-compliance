@@ -111,6 +111,12 @@ management:
       export:
         enabled: true
 
+# Axon Framework configuration
+axon:
+  axonserver:
+    enabled: false
+    suppress-download-message: true
+
 # Logging configuration
 logging:
   level:
