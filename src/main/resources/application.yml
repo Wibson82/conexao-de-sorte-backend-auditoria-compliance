@@ -37,7 +37,8 @@ spring:
 
   # R2DBC Configuration (Spring Boot 3.5.5 compatible)
   r2dbc:
-    url: ${conexao-de-sorte-database-r2dbc-url:r2dbc:mysql://mysql-proxy:6033/conexao_audit?useSSL=true&allowPublicKeyRetrieval=false}
+    # Preferencialmente usa -database-r2dbc-url; mantém compat com -database-url
+    url: ${conexao-de-sorte-database-r2dbc-url:${conexao-de-sorte-database-url:r2dbc:mysql://mysql-proxy:6033/conexao_audit?useSSL=true&allowPublicKeyRetrieval=false}}
     username: ${conexao-de-sorte-database-username:}
     password: ${conexao-de-sorte-database-password:}
     pool:
@@ -67,7 +68,8 @@ spring:
   # Flyway for database migrations
   flyway:
     enabled: true
-    url: ${conexao-de-sorte-database-flyway-url:jdbc:mysql://mysql-proxy:6033/conexao_audit?useSSL=true&allowPublicKeyRetrieval=false}
+    # Padroniza uso de -database-jdbc-url, mantendo compatibilidade com -database-flyway-url
+    url: ${conexao-de-sorte-database-jdbc-url:${conexao-de-sorte-database-flyway-url:jdbc:mysql://mysql-proxy:6033/conexao_audit?useSSL=true&allowPublicKeyRetrieval=false}}
     user: ${conexao-de-sorte-database-username:}
     password: ${conexao-de-sorte-database-password:}
     locations: classpath:db/migration
