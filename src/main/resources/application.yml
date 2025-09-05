@@ -8,6 +8,13 @@ spring:
   main:
     allow-bean-definition-overriding: true
     
+  # Config import para Azure Key Vault secrets
+  config:
+    import:
+      - optional:configtree:/etc/secrets/azure/
+      - optional:configtree:/mnt/secrets/
+      - optional:file:./secrets.properties
+      
   # Azure Key Vault (padrão simplificado)
   cloud:
     azure:
@@ -30,8 +37,8 @@ spring:
 
   # R2DBC Configuration (Spring Boot 3.5.5 compatible)
   r2dbc:
-    url: ${conexao-de-sorte-database-r2dbc-url:r2dbc:mysql://localhost:3306/conexao_sorte_audit?useSSL=true&allowPublicKeyRetrieval=true}
-    username: ${conexao-de-sorte-database-username:audit_user}
+    url: ${conexao-de-sorte-database-r2dbc-url:r2dbc:mysql://mysql-proxy:6033/conexao_audit?useSSL=true&allowPublicKeyRetrieval=false}
+    username: ${conexao-de-sorte-database-username:}
     password: ${conexao-de-sorte-database-password:}
     pool:
       enabled: true
@@ -60,8 +67,8 @@ spring:
   # Flyway for database migrations
   flyway:
     enabled: true
-    url: ${conexao-de-sorte-database-jdbc-url:jdbc:mysql://localhost:3306/conexao_sorte_audit}
-    user: ${conexao-de-sorte-database-username:audit_user}
+    url: ${conexao-de-sorte-database-flyway-url:jdbc:mysql://mysql-proxy:6033/conexao_audit?useSSL=true&allowPublicKeyRetrieval=false}
+    user: ${conexao-de-sorte-database-username:}
     password: ${conexao-de-sorte-database-password:}
     locations: classpath:db/migration
     baseline-on-migrate: true
