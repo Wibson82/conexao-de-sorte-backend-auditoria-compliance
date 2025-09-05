@@ -67,7 +67,10 @@ server:
 
   # SSL/TLS Configuration
   ssl:
-    enabled: ${conexao-de-sorte-ssl-enabled:true}
+    # Em Azure, TLS normalmente é encerrado no gateway/reverso. Mantemos desabilitado
+    # por padrão e só ativamos quando os segredos do keystore forem realmente
+    # fornecidos via Key Vault/Secrets ou variáveis de ambiente.
+    enabled: ${conexao-de-sorte-ssl-enabled:false}
     key-store: ${conexao-de-sorte-ssl-keystore-path:}
     key-store-password: ${conexao-de-sorte-ssl-keystore-password:}
     key-store-type: PKCS12
@@ -133,4 +136,6 @@ logging:
     console: "%d{yyyy-MM-dd HH:mm:ss} - %msg%n"
     file: "%d{yyyy-MM-dd HH:mm:ss} [%thread] %-5level %logger{36} - %msg%n"
   file:
-    name: "/var/log/conexao-sorte/auditoria-compliance.log"
+    # Direciona para diretório gravável dentro do container; pode ser sobrescrito
+    # por variável de ambiente LOG_FILE, seguindo o padrão dos demais serviços.
+    name: ${LOG_FILE:/app/logs/auditoria-compliance.log}

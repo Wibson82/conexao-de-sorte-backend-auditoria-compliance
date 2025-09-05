@@ -80,6 +80,10 @@ COPY --from=builder --chown=appuser:appgroup /build/target/*.jar app.jar
 ## JVM otimizada para containers: flags removidas para compatibilidade total com Java 24
 # As flags e perfis devem ser definidos externamente via workflow/deploy
 
+# Preparar diretório de logs gravável pelo app
+RUN mkdir -p /app/logs && \
+    chown -R appuser:appgroup /app/logs
+
 # Variáveis de ambiente da aplicação devem ser fornecidas externamente (CI/Compose/Helm)
 
 # Expor porta da aplicação
