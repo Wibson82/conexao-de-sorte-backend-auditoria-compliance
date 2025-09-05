@@ -243,6 +243,52 @@ jobs:
           client-id: ${{ secrets.AZURE_CLIENT_ID }}
           tenant-id: ${{ secrets.AZURE_TENANT_ID }}
           subscription-id: ${{ secrets.AZURE_SUBSCRIPTION_ID }}
+
+      - name: Load Azure Key Vault secrets
+        run: |
+          set -euo pipefail
+          # Extract vault name from AZURE_KEYVAULT_ENDPOINT
+          VAULT_ENDPOINT="${{ secrets.AZURE_KEYVAULT_ENDPOINT }}"
+          if [[ "$VAULT_ENDPOINT" =~ https://([^.]+)\.vault\.azure\.net ]]; then
+            VAULT="${BASH_REMATCH[1]}"
+          else
+            echo "ERROR: Invalid AZURE_KEYVAULT_ENDPOINT format: $VAULT_ENDPOINT" >&2
+            echo "Expected format: https://vault-name.vault.azure.net/" >&2
+            exit 1
+          fi
+          
+          echo "Loading secrets from Azure Key Vault: $VAULT (endpoint: $VAULT_ENDPOINT)" >&2
+          echo "VAULT=$VAULT" >> "$GITHUB_ENV"
+          get() { 
+            echo "Fetching secret: $1" >&2
+            SECRET_VALUE=$(az keyvault secret show --vault-name "$VAULT" --name "$1" --query value -o tsv 2>/dev/null)
+            if [ $? -ne 0 ] || [ -z "$SECRET_VALUE" ]; then
+              echo "ERROR: Secret $1 not found in Azure Key Vault $VAULT" >&2
+              echo "Available secrets in vault:" >&2
+              az keyvault secret list --vault-name "$VAULT" --query '[].name' -o tsv >&2
+              exit 1
+            fi
+            echo "$SECRET_VALUE"
+          }
+          
+          # Database secrets
+          echo "DB_R2DBC_URL=$(get conexao-de-sorte-database-r2dbc-url)" >> $GITHUB_ENV
+          echo "DB_USERNAME=$(get conexao-de-sorte-database-username)" >> $GITHUB_ENV
+          echo "DB_PASSWORD=$(get conexao-de-sorte-database-password)" >> $GITHUB_ENV
+          echo "DB_FLYWAY_URL=$(get conexao-de-sorte-database-flyway-url)" >> $GITHUB_ENV
+          
+          # Redis secrets
+          echo "REDIS_HOST=$(get conexao-de-sorte-redis-host)" >> $GITHUB_ENV
+          echo "REDIS_PORT=$(get conexao-de-sorte-redis-port)" >> $GITHUB_ENV
+          echo "REDIS_PASSWORD=$(get conexao-de-sorte-redis-password)" >> $GITHUB_ENV
+          echo "REDIS_DATABASE=$(get conexao-de-sorte-redis-database)" >> $GITHUB_ENV
+          
+          # JWT secrets
+          echo "JWT_JWKS_URI=$(get conexao-de-sorte-jwt-jwks-uri)" >> $GITHUB_ENV
+          echo "JWT_ISSUER=$(get conexao-de-sorte-jwt-issuer)" >> $GITHUB_ENV
+          
+          echo "Success: Azure Key Vault secrets loaded successfully" >&2
+
       - name: 🧹 Clean old containers
         run: |
           echo "🧹 Cleaning old auditoria-compliance-microservice containers..."
@@ -276,6 +322,16 @@ jobs:
             -e AZURE_SUBSCRIPTION_ID='${{ secrets.AZURE_SUBSCRIPTION_ID }}' \
             -e AZURE_KEYVAULT_ENDPOINT='${{ secrets.AZURE_KEYVAULT_ENDPOINT }}' \
             -e AZURE_KEYVAULT_NAME='${{ secrets.AZURE_KEYVAULT_NAME }}' \
+            -e conexao-de-sorte-database-r2dbc-url="${DB_R2DBC_URL}" \
+            -e conexao-de-sorte-database-username="${DB_USERNAME}" \
+            -e conexao-de-sorte-database-password="${DB_PASSWORD}" \
+            -e conexao-de-sorte-database-flyway-url="${DB_FLYWAY_URL}" \
+            -e conexao-de-sorte-redis-host="${REDIS_HOST}" \
+            -e conexao-de-sorte-redis-port="${REDIS_PORT}" \
+            -e conexao-de-sorte-redis-password="${REDIS_PASSWORD}" \
+            -e conexao-de-sorte-redis-database="${REDIS_DATABASE}" \
+            -e conexao-de-sorte-jwt-jwks-uri="${JWT_JWKS_URI}" \
+            -e conexao-de-sorte-jwt-issuer="${JWT_ISSUER}" \
             --label "traefik.enable=true" \
             --label "traefik.docker.network=conexao-network" \
             --label "traefik.http.routers.auditoria-compliance.rule=Host(\\`audit.conexaodesorte.com.br\\`)" \
