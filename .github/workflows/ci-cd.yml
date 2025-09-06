@@ -275,7 +275,7 @@ jobs:
           echo "DB_R2DBC_URL=$(get conexao-de-sorte-database-r2dbc-url)" >> $GITHUB_ENV
           echo "DB_USERNAME=$(get conexao-de-sorte-database-username)" >> $GITHUB_ENV
           echo "DB_PASSWORD=$(get conexao-de-sorte-database-password)" >> $GITHUB_ENV
-          echo "DB_FLYWAY_URL=$(get conexao-de-sorte-database-flyway-url)" >> $GITHUB_ENV
+          echo "DB_FLYWAY_URL=$(get conexao-de-sorte-database-jdbc-url)" >> $GITHUB_ENV
           
           # Redis secrets
           echo "REDIS_HOST=$(get conexao-de-sorte-redis-host)" >> $GITHUB_ENV
@@ -325,7 +325,7 @@ jobs:
             -e conexao-de-sorte-database-r2dbc-url="${DB_R2DBC_URL}" \
             -e conexao-de-sorte-database-username="${DB_USERNAME}" \
             -e conexao-de-sorte-database-password="${DB_PASSWORD}" \
-            -e conexao-de-sorte-database-flyway-url="${DB_FLYWAY_URL}" \
+            -e conexao-de-sorte-database-jdbc-url="${DB_FLYWAY_URL}" \
             -e conexao-de-sorte-redis-host="${REDIS_HOST}" \
             -e conexao-de-sorte-redis-port="${REDIS_PORT}" \
             -e conexao-de-sorte-redis-password="${REDIS_PASSWORD}" \
