@@ -39,19 +39,25 @@ COPY pom.xml .
 COPY .mvn/ .mvn/
 COPY mvnw .
 
-# Download de dependências (layer cacheável)
+# Download de dependências (layer cacheável) com timeout estendido
 RUN --mount=type=cache,target=/root/.m2 \
-    mvn dependency:go-offline -B
+    mvn dependency:go-offline -B \
+    -Dmaven.wagon.http.connectionTimeout=300000 \
+    -Dmaven.wagon.http.readTimeout=300000 \
+    -Dmaven.wagon.rto=300000
 
 # Copiar código fonte
 COPY src/ src/
 
-# Build da aplicação com otimizações
+# Build da aplicação com otimizações e timeout estendido
 RUN --mount=type=cache,target=/root/.m2 \
     mvn clean package -DskipTests -B \
     -Dspring-boot.build-image.pullPolicy=IF_NOT_PRESENT \
     -Dmaven.compiler.debug=false \
-    -Dmaven.compiler.optimize=true
+    -Dmaven.compiler.optimize=true \
+    -Dmaven.wagon.http.connectionTimeout=300000 \
+    -Dmaven.wagon.http.readTimeout=300000 \
+    -Dmaven.wagon.rto=300000
 
 # === ESTÁGIO 2: RUNTIME ===
 FROM eclipse-temurin:24-jre-alpine AS runtime

@@ -159,7 +159,7 @@ jobs:
           echo "REDIS_PORT=$(get conexao-de-sorte-redis-port)" >> $GITHUB_ENV
           echo "REDIS_PASSWORD=$(get conexao-de-sorte-redis-password)" >> $GITHUB_ENV
           echo "JWT_ISSUER=$(get conexao-de-sorte-jwt-issuer)" >> $GITHUB_ENV
-          echo "JWT_JWKS_URI=$(get conexao-de-sorte-jwt-jwks-uri)" >> $GITHUB_ENV
+          echo "JWT_JWKS_URI=https://auth.conexaodesorte.com/.well-known/jwks.json" >> $GITHUB_ENV
           
           echo "✅ Azure Key Vault secrets loaded successfully" >&2
           
