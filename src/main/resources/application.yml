@@ -56,7 +56,7 @@ spring:
       host: ${conexao-de-sorte-redis-host:localhost}
       port: ${conexao-de-sorte-redis-port:6379}
       password: ${conexao-de-sorte-redis-password:}
-      database: ${conexao-de-sorte-redis-database:0}
+      database: 0
       timeout: 2s
       lettuce:
         pool:
