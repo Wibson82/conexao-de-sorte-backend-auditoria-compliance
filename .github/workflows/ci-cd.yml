@@ -25,7 +25,7 @@ concurrency:
 jobs:
   validate-environment:
     runs-on: ubuntu-latest
-    timeout-minutes: 10
+    timeout-minutes: 35
     name: ✅ Validate Build Environment
     steps:
       - uses: actions/checkout@v4
@@ -64,7 +64,7 @@ jobs:
   build-and-test:
     needs: validate-environment
     runs-on: ubuntu-latest
-    timeout-minutes: 10
+    timeout-minutes: 15
     name: 🏗️ Build and Test on GitHub Runners
     steps:
       - uses: actions/checkout@v4
@@ -90,7 +90,7 @@ jobs:
 
   build-deploy-selfhosted:
     runs-on: [self-hosted]
-    timeout-minutes: 10
+    timeout-minutes: 25
     name: 🚀 Build & Deploy on Self-hosted Runner (Ubuntu)
     needs: build-and-test
     if: github.ref == 'refs/heads/main' && (github.event_name == 'push' || (github.event_name == 'workflow_dispatch' && inputs.environment == 'production'))
