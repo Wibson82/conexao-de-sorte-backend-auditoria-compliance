@@ -33,7 +33,7 @@
         <axon.version>4.10.2</axon.version>
         
         <!-- Criptografia -->
-        <bouncycastle.version>1.78.1</bouncycastle.version>
+        <bouncycastle.version>1.80</bouncycastle.version>
         
         <!-- Mockito -->
         <mockito.version>5.18.0</mockito.version>
@@ -86,6 +86,27 @@
                 <groupId>com.nimbusds</groupId>
                 <artifactId>nimbus-jose-jwt</artifactId>
                 <version>10.0.1</version>
+            </dependency>
+            <!-- Correção de conflitos de dependência -->
+            <dependency>
+                <groupId>org.checkerframework</groupId>
+                <artifactId>checker-qual</artifactId>
+                <version>3.49.3</version>
+            </dependency>
+            <dependency>
+                <groupId>org.bouncycastle</groupId>
+                <artifactId>bcprov-jdk18on</artifactId>
+                <version>1.80</version>
+            </dependency>
+            <dependency>
+                <groupId>com.google.errorprone</groupId>
+                <artifactId>error_prone_annotations</artifactId>
+                <version>2.40.0</version>
+            </dependency>
+            <dependency>
+                <groupId>com.microsoft.azure</groupId>
+                <artifactId>msal4j</artifactId>
+                <version>1.21.0</version>
             </dependency>
         </dependencies>
     </dependencyManagement>
