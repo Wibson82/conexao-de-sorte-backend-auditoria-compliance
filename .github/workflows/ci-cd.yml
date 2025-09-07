@@ -44,7 +44,7 @@ jobs:
         run: |
           set -euo pipefail
           mvn -B -q dependency:list -DincludeScope=compile -DoutputFile=dep.txt -DappendOutput=true || true
-          if grep -E "com.h2database:h2|io.r2dbc:r2dbc-h2" dep.txt; then
+          if grep -E "com\.h2database:h2|io\.r2dbc:r2dbc-h2" dep.txt; then
             echo "H2 present in non-test scope (compile/runtime)" >&2
             exit 1
           fi
@@ -81,7 +81,7 @@ jobs:
 
   build-deploy-selfhosted:
     runs-on: [self-hosted, conexao-de-sorte-backend-auditoria-compliance]
-    timeout-minutes: 90 # Step timeouts: 10 * 9
+    timeout-minutes: 80 # Step timeouts: 10 * 8
     name: 🚀 Build & Deploy on Self-hosted Runner (Ubuntu)
     needs: build-and-test
     if: github.ref == 'refs/heads/main' && (github.event_name == 'push' || (github.event_name == 'workflow_dispatch' && inputs.environment == 'production'))
@@ -136,7 +136,7 @@ jobs:
           fi
           
           echo "Loading secrets from Azure Key Vault: $VAULT" >&2
-          get() { 
+          get() {
             echo "Fetching secret: $1" >&2
             SECRET_VALUE=$(az keyvault secret show --vault-name "$VAULT" --name "$1" --query value -o tsv 2>/dev/null)
             if [ $? -ne 0 ] || [ -z "$SECRET_VALUE" ]; then
@@ -166,14 +166,7 @@ jobs:
           echo "EVENTSTORE_PASSWORD=$(get conexao-de-sorte-eventstore-db-password)" >> $GITHUB_ENV
           
           echo "✅ Azure Key Vault secrets loaded successfully" >&2
-
-      - name: Prepare Deploy Vars
-        id: prep_vars
-        timeout-minutes: 5
-        run: |
-          db_name="db_$(echo ${{ env.SERVICE_NAME }} | tr '-' '_')"
-          echo "DB_NAME=$db_name" >> "$GITHUB_ENV"
-
+          
       - name: 🧹 Clean old containers
         timeout-minutes: 10
         run: |
@@ -219,6 +212,11 @@ jobs:
           set -euo pipefail
           IMAGE_TAG="${{ steps.build.outputs.image_tag }}"
           CONTAINER_NAME="${{ env.SERVICE_NAME }}-microservice"
+
+          # Criar nome do DB com sintaxe de shell pura
+          DB_NAME_RAW="${{ env.SERVICE_NAME }}"
+          DB_NAME="db_$(echo "$DB_NAME_RAW" | tr '-' '_')"
+
           export TZ=America/Sao_Paulo
           
           docker network create conexao-network 2>/dev/null || true
@@ -242,10 +240,10 @@ jobs:
             -e AZURE_TENANT_ID="${{ secrets.AZURE_TENANT_ID }}" \
             -e AZURE_KEYVAULT_ENDPOINT="${{ secrets.AZURE_KEYVAULT_ENDPOINT }}" \
             -e AZURE_KEYVAULT_ENABLED="true" \
-            -e SPRING_DATASOURCE_R2DBC_URL="r2dbc:mysql://${{ env.DB_HOST }}:${{ env.DB_PORT }}/${{ env.DB_NAME }}" \
+            -e SPRING_DATASOURCE_R2DBC_URL="r2dbc:mysql://${{ env.DB_HOST }}:${{ env.DB_PORT }}/$DB_NAME" \
             -e SPRING_DATASOURCE_R2DBC_USERNAME="${{ env.DB_USERNAME }}" \
             -e SPRING_DATASOURCE_R2DBC_PASSWORD="${{ env.DB_PASSWORD }}" \
-            -e SPRING_FLYWAY_URL="jdbc:mysql://${{ env.DB_HOST }}:${{ env.DB_PORT }}/${{ env.DB_NAME }}" \
+            -e SPRING_FLYWAY_URL="jdbc:mysql://${{ env.DB_HOST }}:${{ env.DB_PORT }}/$DB_NAME" \
             -e SPRING_FLYWAY_USER="${{ env.DB_USERNAME }}" \
             -e SPRING_FLYWAY_PASSWORD="${{ env.DB_PASSWORD }}" \
             -e SPRING_REDIS_HOST="${{ env.REDIS_HOST }}" \
@@ -260,7 +258,7 @@ jobs:
             -e AXON_EVENTSOURCING_PASSWORD="${{ env.EVENTSTORE_PASSWORD }}" \
             --label "traefik.enable=true" \
             --label "traefik.docker.network=conexao-network" \
-            --label "traefik.http.routers.${{ env.SERVICE_NAME }}.rule=Host(\"${{ env.SERVICE_NAME }}.conexaodesorte.com.br\")" \
+            --label "traefik.http.routers.${{ env.SERVICE_NAME }}.rule=Host(\"`${{ env.SERVICE_NAME }}.conexaodesorte.com.br`\")" \
             --label "traefik.http.routers.${{ env.SERVICE_NAME }}.entrypoints=websecure" \
             --label "traefik.http.routers.${{ env.SERVICE_NAME }}.tls.certresolver=letsencrypt" \
             --label "traefik.http.services.${{ env.SERVICE_NAME }}.loadbalancer.server.port=8080" \
