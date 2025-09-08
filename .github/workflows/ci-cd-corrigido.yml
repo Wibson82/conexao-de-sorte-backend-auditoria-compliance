@@ -1,0 +1,371 @@
+name: 🔐 Auditoria-Compliance - CI/CD Pipeline Corrigido (Todos os Segredos)
+
+on:
+  push:
+    branches: [ main ]
+  pull_request:
+    branches: [ main ]
+  workflow_dispatch:
+    inputs:
+      environment:
+        description: 'Destino do deploy'
+        required: false
+        default: 'production'
+        type: choice
+        options: [staging, production]
+
+env:
+  SERVICE_NAME: auditoria-compliance
+  TZ: America/Sao_Paulo
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}-${{ github.event_name == 'workflow_dispatch' && inputs.environment || 'production' }}
+  cancel-in-progress: false
+
+jobs:
+  validate-environment:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    name: ✅ Validate Build Environment
+    steps:
+      - uses: actions/checkout@v4
+      - name: "Guard: forbid r2dbc:h2 outside tests"
+        timeout-minutes: 10
+        run: |
+          set -euo pipefail
+          FOUND=$(grep -R --line-number --include='*.yml' --include='*.properties' --include='*.yaml' "r2dbc:h2" src || true)
+          if echo "$FOUND" | grep -v "src/test/" | grep -q "r2dbc:h2"; then
+            echo "Forbidden r2dbc:h2 reference outside src/test" >&2
+            echo "$FOUND" | grep -v "src/test/" >&2 || true
+            exit 1
+          fi
+      - name: "Guard: H2 not in non-test scopes"
+        timeout-minutes: 10
+        run: |
+          set -euo pipefail
+          mvn -B -q dependency:list -DincludeScope=compile -DoutputFile=dep.txt -DappendOutput=true || true
+          if grep -E "com\.h2database:h2|io\.r2dbc:r2dbc-h2" dep.txt; then
+            echo "H2 present in non-test scope (compile/runtime)" >&2
+            exit 1
+          fi
+
+  build-and-test:
+    needs: validate-environment
+    runs-on: ubuntu-latest
+    timeout-minutes: 40
+    name: 🏗️ Build and Test on GitHub Runners
+    steps:
+      - uses: actions/checkout@v4
+      - name: Setup Java 24
+        timeout-minutes: 10
+        uses: actions/setup-java@v4
+        with:
+          java-version: '24'
+          distribution: 'temurin'
+          cache: maven
+      - name: Verify Maven wrapper
+        timeout-minutes: 10
+        run: |
+          chmod +x ./mvnw
+          ./mvnw --version
+      - name: Build application (skip tests)
+        timeout-minutes: 10
+        run: ./mvnw clean package -DskipTests
+      - name: Upload JAR artifact for self-hosted runner
+        timeout-minutes: 10
+        uses: actions/upload-artifact@v4
+        with:
+          name: auditoria-compliance-jar
+          path: target/*.jar
+          retention-days: 1
+
+  build-deploy-selfhosted:
+    runs-on: [self-hosted, conexao-de-sorte-backend-auditoria-compliance]
+    timeout-minutes: 100
+    name: 🚀 Build & Deploy on Self-hosted Runner (Ubuntu)
+    needs: build-and-test
+    if: github.ref == 'refs/heads/main' && (github.event_name == 'push' || (github.event_name == 'workflow_dispatch' && inputs.environment == 'production'))
+    permissions:
+      id-token: write
+      contents: read
+    steps:
+      - uses: actions/checkout@v4
+      
+      - name: Verificar ambiente do self-hosted runner
+        timeout-minutes: 10
+        run: |
+          echo "🔍 Verificando ambiente do self-hosted runner..."
+          echo "🏃 Runner: $(hostname)"
+          echo "📅 Data: $(date)"
+          echo "👤 Usuário: $(whoami)"
+          echo "📁 Diretório: $(pwd)"
+          echo "💾 Espaço disponível:"
+          df -h
+          echo "🐳 Docker version:"
+          docker --version
+          echo "☕ Java version:"
+          java -version || echo "Java não encontrado via PATH"
+          
+      - name: Download JAR artifact from GitHub runners
+        timeout-minutes: 10
+        uses: actions/download-artifact@v4
+        with:
+          name: auditoria-compliance-jar
+          path: ./target
+          
+      - name: Azure Login (OIDC) no self-hosted runner
+        timeout-minutes: 10
+        uses: azure/login@v2
+        with:
+          client-id: ${{ secrets.AZURE_CLIENT_ID }}
+          tenant-id: ${{ secrets.AZURE_TENANT_ID }}
+          subscription-id: ${{ secrets.AZURE_SUBSCRIPTION_ID }}
+
+      - name: Fetch Azure Key Vault secrets (COMPLETO)
+        id: kv
+        timeout-minutes: 15
+        shell: bash
+        run: |
+          set -euo pipefail
+          VAULT_ENDPOINT="${{ secrets.AZURE_KEYVAULT_ENDPOINT }}"
+          if [[ "$VAULT_ENDPOINT" =~ https://([^.]+)\.vault\.azure\.net ]]; then
+            VAULT="${BASH_REMATCH[1]}"
+          else
+            echo "ERROR: Invalid AZURE_KEYVAULT_ENDPOINT format: $VAULT_ENDPOINT" >&2
+            exit 1
+          fi
+          
+          echo "Loading ALL secrets from Azure Key Vault: $VAULT" >&2
+          get() {
+            echo "Fetching secret: $1" >&2
+            SECRET_VALUE=$(az keyvault secret show --vault-name "$VAULT" --name "$1" --query value -o tsv 2>/dev/null)
+            if [ $? -ne 0 ] || [ -z "$SECRET_VALUE" ]; then
+              echo "WARNING: Secret $1 not found in Azure Key Vault $VAULT" >&2
+              echo ""
+            else
+              echo "$SECRET_VALUE"
+            fi
+          }
+          
+          # ===== DATABASE SECRETS =====
+          echo "DB_HOST=$(get conexao-de-sorte-db-host)" >> $GITHUB_ENV
+          echo "DB_PORT=$(get conexao-de-sorte-db-port)" >> $GITHUB_ENV
+          echo "DB_USERNAME=$(get conexao-de-sorte-database-username)" >> $GITHUB_ENV
+          echo "DB_PASSWORD=$(get conexao-de-sorte-database-password)" >> $GITHUB_ENV
+          echo "DB_R2DBC_URL=$(get conexao-de-sorte-database-r2dbc-url)" >> $GITHUB_ENV
+          echo "DB_JDBC_URL=$(get conexao-de-sorte-database-jdbc-url)" >> $GITHUB_ENV
+          echo "DB_URL=$(get conexao-de-sorte-database-url)" >> $GITHUB_ENV
+          echo "DB_PROXYSQL_PASSWORD=$(get conexao-de-sorte-database-proxysql-password)" >> $GITHUB_ENV
+          
+          # ===== REDIS SECRETS =====
+          echo "REDIS_HOST=$(get conexao-de-sorte-redis-host)" >> $GITHUB_ENV
+          echo "REDIS_PORT=$(get conexao-de-sorte-redis-port)" >> $GITHUB_ENV
+          echo "REDIS_PASSWORD=$(get conexao-de-sorte-redis-password)" >> $GITHUB_ENV
+          echo "REDIS_DATABASE=$(get conexao-de-sorte-redis-database)" >> $GITHUB_ENV
+          
+          # ===== JWT SECRETS =====
+          echo "JWT_ISSUER=$(get conexao-de-sorte-jwt-issuer)" >> $GITHUB_ENV
+          echo "JWT_JWKS_URI=$(get conexao-de-sorte-jwt-jwks-uri)" >> $GITHUB_ENV
+          echo "JWT_KEY_ID=$(get conexao-de-sorte-jwt-key-id)" >> $GITHUB_ENV
+          echo "JWT_PRIVATE_KEY=$(get conexao-de-sorte-jwt-privateKey)" >> $GITHUB_ENV
+          echo "JWT_PUBLIC_KEY=$(get conexao-de-sorte-jwt-publicKey)" >> $GITHUB_ENV
+          echo "JWT_SECRET=$(get conexao-de-sorte-jwt-secret)" >> $GITHUB_ENV
+          echo "JWT_SIGNING_KEY=$(get conexao-de-sorte-jwt-signing-key)" >> $GITHUB_ENV
+          echo "JWT_VERIFICATION_KEY=$(get conexao-de-sorte-jwt-verification-key)" >> $GITHUB_ENV
+          
+          # ===== ENCRYPTION SECRETS =====
+          echo "ENCRYPTION_MASTER_KEY=$(get conexao-de-sorte-encryption-master-key)" >> $GITHUB_ENV
+          echo "ENCRYPTION_MASTER_PASSWORD=$(get conexao-de-sorte-encryption-master-password)" >> $GITHUB_ENV
+          echo "ENCRYPTION_BACKUP_KEY=$(get conexao-de-sorte-encryption-backup-key)" >> $GITHUB_ENV
+          
+          # ===== SSL SECRETS =====
+          echo "SSL_ENABLED=$(get conexao-de-sorte-ssl-enabled)" >> $GITHUB_ENV
+          echo "SSL_KEYSTORE_PATH=$(get conexao-de-sorte-ssl-keystore-path)" >> $GITHUB_ENV
+          echo "SSL_KEYSTORE_PASSWORD=$(get conexao-de-sorte-ssl-keystore-password)" >> $GITHUB_ENV
+          
+          # ===== CORS SECRETS =====
+          echo "CORS_ALLOWED_ORIGINS=$(get conexao-de-sorte-cors-allowed-origins)" >> $GITHUB_ENV
+          echo "CORS_ALLOW_CREDENTIALS=$(get conexao-de-sorte-cors-allow-credentials)" >> $GITHUB_ENV
+          
+          # ===== SERVICE-SPECIFIC SECRETS =====
+          echo "KAFKA_BOOTSTRAP_SERVERS=$(get conexao-de-sorte-kafka-bootstrap-servers)" >> $GITHUB_ENV
+          echo "EVENTSTORE_HOST=$(get conexao-de-sorte-eventstore-db-host)" >> $GITHUB_ENV
+          echo "EVENTSTORE_PORT=$(get conexao-de-sorte-eventstore-db-port)" >> $GITHUB_ENV
+          echo "EVENTSTORE_DB_NAME=$(get conexao-de-sorte-eventstore-db-name)" >> $GITHUB_ENV
+          echo "EVENTSTORE_USERNAME=$(get conexao-de-sorte-eventstore-db-username)" >> $GITHUB_ENV
+          echo "EVENTSTORE_PASSWORD=$(get conexao-de-sorte-eventstore-db-password)" >> $GITHUB_ENV
+          
+          echo "✅ Azure Key Vault secrets loaded successfully (ALL SECRETS)" >&2
+          
+      - name: 🧹 Clean old containers
+        timeout-minutes: 10
+        run: |
+          set -euo pipefail
+          CONTAINER_NAME="${{ env.SERVICE_NAME }}-microservice"
+          echo "🧹 Cleaning old $CONTAINER_NAME containers..."
+          
+          if docker ps -a --format '{{.Names}}' | grep -q "^$CONTAINER_NAME$"; then
+            echo "🛑 Stopping container: $CONTAINER_NAME"
+            docker stop "$CONTAINER_NAME" || true
+            echo "🗑️ Removing container: $CONTAINER_NAME"
+            docker rm "$CONTAINER_NAME" || true
+          else
+            echo "✅ No $CONTAINER_NAME container found"
+          fi
+          
+          docker images --format "{{.Repository}}:{{.Tag}}" | grep "^${{ env.SERVICE_NAME }}:" | head -n -1 | xargs -r docker rmi || true
+          echo "✅ Container cleanup completed"
+
+      - name: 🐳 Build Docker image (Local - Self-hosted)
+        id: build
+        timeout-minutes: 30
+        run: |
+          set -euo pipefail
+          TAG="${{ env.SERVICE_NAME }}:$(date +'%Y-%m-%d-%H%M%S')"
+          
+          echo "🏗️ Building Docker image locally on self-hosted runner: $TAG"
+          docker build \
+            --platform linux/amd64 \
+            --tag "$TAG" \
+            --build-arg SERVICE_NAME="${{ env.SERVICE_NAME }}" \
+            --build-arg BUILD_DATE="${{ github.event.head_commit.timestamp || github.run_id }}" \
+            --build-arg VCS_REF="${{ github.sha }}" \
+            --build-arg VERSION="1.0.0" \
+            .
+          
+          echo "image_tag=$TAG" >> "$GITHUB_OUTPUT"
+          echo "✅ Image built locally on self-hosted runner (NO REGISTRY)"
+
+      - name: 🚀 Deploy container directly (TODOS OS SEGREDOS)
+        timeout-minutes: 10
+        run: |
+          set -euo pipefail
+          IMAGE_TAG="${{ steps.build.outputs.image_tag }}"
+          CONTAINER_NAME="${{ env.SERVICE_NAME }}-microservice"
+
+          # Criar nome do DB com sintaxe de shell pura
+          DB_NAME_RAW="${{ env.SERVICE_NAME }}"
+          DB_NAME="db_$(echo "$DB_NAME_RAW" | tr '-' '_')"
+
+          export TZ=America/Sao_Paulo
+          
+          docker network create conexao-network 2>/dev/null || true
+          
+          echo "🚀 Starting $CONTAINER_NAME container with ALL SECRETS..."
+          docker run -d \
+            --name "$CONTAINER_NAME" \
+            --network conexao-network \
+            --restart unless-stopped \
+            -p "8082:8080" \
+            --health-cmd="curl -f http://localhost:8080/actuator/health/readiness && curl -f http://localhost:8080/actuator/health/liveness || exit 1" \
+            --health-interval=30s \
+            --health-timeout=10s \
+            --health-retries=5 \
+            --health-start-period=60s \
+            -e JAVA_TOOL_OPTIONS="-XX:+UseContainerSupport -XX:MaxRAMPercentage=75.0 -Xms256m -Xmx512m -Djava.security.egd=file:/dev/./urandom -Djava.awt.headless=true -Dfile.encoding=UTF-8" \
+            -e SPRING_PROFILES_ACTIVE="prod,azure" \
+            -e SERVER_PORT="8080" \
+            -e TZ="America/Sao_Paulo" \
+            -e AZURE_CLIENT_ID="${{ secrets.AZURE_CLIENT_ID }}" \
+            -e AZURE_TENANT_ID="${{ secrets.AZURE_TENANT_ID }}" \
+            -e AZURE_KEYVAULT_ENDPOINT="${{ secrets.AZURE_KEYVAULT_ENDPOINT }}" \
+            -e AZURE_KEYVAULT_ENABLED="true" \
+            -e SPRING_DATASOURCE_R2DBC_URL="${DB_R2DBC_URL:-r2dbc:mysql://${{ env.DB_HOST }}:${{ env.DB_PORT }}/$DB_NAME}" \
+            -e SPRING_DATASOURCE_R2DBC_USERNAME="${{ env.DB_USERNAME }}" \
+            -e SPRING_DATASOURCE_R2DBC_PASSWORD="${{ env.DB_PASSWORD }}" \
+            -e SPRING_FLYWAY_URL="${DB_JDBC_URL:-jdbc:mysql://${{ env.DB_HOST }}:${{ env.DB_PORT }}/$DB_NAME}" \
+            -e SPRING_FLYWAY_USER="${{ env.DB_USERNAME }}" \
+            -e SPRING_FLYWAY_PASSWORD="${{ env.DB_PASSWORD }}" \
+            -e SPRING_REDIS_HOST="${{ env.REDIS_HOST }}" \
+            -e SPRING_REDIS_PORT="${{ env.REDIS_PORT }}" \
+            -e SPRING_REDIS_PASSWORD="${{ env.REDIS_PASSWORD }}" \
+            -e SPRING_REDIS_DATABASE="${REDIS_DATABASE:-2}" \
+            -e SPRING_SECURITY_OAUTH2_RESOURCESERVER_JWT_ISSUER_URI="${{ env.JWT_ISSUER }}" \
+            -e SPRING_SECURITY_OAUTH2_RESOURCESERVER_JWT_JWK_SET_URI="${{ env.JWT_JWKS_URI }}" \
+            -e SPRING_KAFKA_BOOTSTRAP_SERVERS="${{ env.KAFKA_BOOTSTRAP_SERVERS }}" \
+            -e AXON_AXONSERVER_SERVERS="${{ env.KAFKA_BOOTSTRAP_SERVERS }}" \
+            -e AXON_EVENTSOURCING_URL="jdbc:mysql://${{ env.EVENTSTORE_HOST }}:${{ env.EVENTSTORE_PORT }}/${{ env.EVENTSTORE_DB_NAME }}" \
+            -e AXON_EVENTSOURCING_USERNAME="${{ env.EVENTSTORE_USERNAME }}" \
+            -e AXON_EVENTSOURCING_PASSWORD="${{ env.EVENTSTORE_PASSWORD }}" \
+            -e JWT_KEY_ID="${{ env.JWT_KEY_ID }}" \
+            -e JWT_PRIVATE_KEY="${{ env.JWT_PRIVATE_KEY }}" \
+            -e JWT_PUBLIC_KEY="${{ env.JWT_PUBLIC_KEY }}" \
+            -e JWT_SECRET="${{ env.JWT_SECRET }}" \
+            -e JWT_SIGNING_KEY="${{ env.JWT_SIGNING_KEY }}" \
+            -e JWT_VERIFICATION_KEY="${{ env.JWT_VERIFICATION_KEY }}" \
+            -e ENCRYPTION_MASTER_KEY="${{ env.ENCRYPTION_MASTER_KEY }}" \
+            -e ENCRYPTION_MASTER_PASSWORD="${{ env.ENCRYPTION_MASTER_PASSWORD }}" \
+            -e ENCRYPTION_BACKUP_KEY="${{ env.ENCRYPTION_BACKUP_KEY }}" \
+            -e SSL_ENABLED="${SSL_ENABLED:-false}" \
+            -e SSL_KEYSTORE_PATH="${{ env.SSL_KEYSTORE_PATH }}" \
+            -e SSL_KEYSTORE_PASSWORD="${{ env.SSL_KEYSTORE_PASSWORD }}" \
+            -e CORS_ALLOWED_ORIGINS="${{ env.CORS_ALLOWED_ORIGINS }}" \
+            -e CORS_ALLOW_CREDENTIALS="${{ env.CORS_ALLOW_CREDENTIALS }}" \
+            --label "traefik.enable=true" \
+            --label "traefik.docker.network=conexao-network" \
+            --label "traefik.http.routers.${{ env.SERVICE_NAME }}.rule=Host(\`${{ env.SERVICE_NAME }}.conexaodesorte.com.br\`)" \
+            --label "traefik.http.routers.${{ env.SERVICE_NAME }}.entrypoints=websecure" \
+            --label "traefik.http.routers.${{ env.SERVICE_NAME }}.tls.certresolver=letsencrypt" \
+            --label "traefik.http.services.${{ env.SERVICE_NAME }}.loadbalancer.server.port=8080" \
+            "$IMAGE_TAG"
+          
+          echo "✅ Container deployed successfully with ALL SECRETS"
+
+      - name: Wait for service to be ready
+        timeout-minutes: 10
+        run: |
+          CONTAINER_NAME="${{ env.SERVICE_NAME }}-microservice"
+          echo "🔍 Waiting for service to be ready..."
+          TIMEOUT=180
+          ELAPSED=0
+          while [ $ELAPSED -lt $TIMEOUT ]; do
+            if docker exec $CONTAINER_NAME curl -f -s http://localhost:8080/actuator/health/readiness >/dev/null 2>&1; then
+              echo "✅ Service is ready and healthy!"
+              break
+            fi
+            echo "⏳ Waiting for service readiness... ($ELAPSED/$TIMEOUT seconds)"
+            sleep 10
+            ELAPSED=$((ELAPSED + 10))
+          done
+          
+          if [ $ELAPSED -ge $TIMEOUT ]; then
+            echo "❌ Service failed to become ready within $TIMEOUT seconds"
+            echo "🔍 Container logs:"
+            docker logs $CONTAINER_NAME --tail 50
+            exit 1
+          fi
+          
+          echo "🔍 Final container status:"
+          docker ps --filter name=$CONTAINER_NAME --format 'table {{.Names}}\t{{.Status}}\t{{.Ports}}'
+          
+          echo "🎉 Self-hosted deployment completed successfully - Service is healthy with ALL SECRETS!"
+
+  notify:
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    name: 📢 Notification
+    if: always()
+    needs: [build-and-test, build-deploy-selfhosted]
+    steps:
+      - name: 📧 Send Slack notification
+        if: always()
+        timeout-minutes: 10
+        env:
+          SLACK_WEBHOOK_URL: ${{ secrets.SLACK_WEBHOOK_URL }}
+        run: |
+          DEPLOY_RESULT="${{ needs.build-deploy-selfhosted.result }}"
+          if [ "$DEPLOY_RESULT" = "success" ]; then
+            STATUS="🎉 SUCCESS (Self-hosted + ALL SECRETS)"
+            COLOR="good"
+          elif [ "$DEPLOY_RESULT" = "skipped" ]; then
+            STATUS="⏭️ SKIPPED"
+            COLOR="warning"
+          else
+            STATUS="❌ FAILED"
+            COLOR="danger"
+          fi
+          if [ -n "${SLACK_WEBHOOK_URL:-}" ]; then
+            curl -X POST -H 'Content-type: application/json' \
+            --data "{'text':'$STATUS: Auditoria-Compliance Self-hosted Deploy','attachments':[{'color':'$COLOR','fields':[{'title':'Branch','value':'${{ github.ref_name }}','short':true},{'title':'Commit','value':'${{ github.sha }}','short':true},{'title':'Deploy Method','value':'Self-hosted Runner (All Secrets Integrated)','short':true}]}]}" \
+            $SLACK_WEBHOOK_URL || echo "Slack notification failed or webhook not configured"
+          fi

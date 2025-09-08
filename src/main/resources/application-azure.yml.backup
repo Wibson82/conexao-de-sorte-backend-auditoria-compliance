@@ -243,10 +243,11 @@ management:
     redis:
       enabled: true
   # Métricas específicas de auditoria
-  metrics:
-    export:
-      prometheus:
+  prometheus:
+    metrics:
+      export:
         enabled: true
+        step: PT1M
     tags:
       service: auditoria-compliance
       version: @project.version@
@@ -416,7 +417,7 @@ management:
       exclude: env,configprops,beans,conditions,mappings,threaddump,heapdump,startup
   endpoint:
     health:
-      show-details: when_authorized
+      show-details: when-authorized
       roles: ADMIN
     info:
       enabled: true

@@ -70,11 +70,11 @@ management:
       show-details: when-authorized
       roles: ADMIN
     info:
-      access: read-only
+      enabled: true
     env:
-      access: none
+      enabled: false
     configprops:
-      access: none
+      enabled: false
   health:
     redis:
       enabled: true
