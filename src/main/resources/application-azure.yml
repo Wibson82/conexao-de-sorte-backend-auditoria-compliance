@@ -71,7 +71,7 @@ server:
     # Em Azure, TLS normalmente é encerrado no gateway/reverso. Mantemos desabilitado
     # por padrão e só ativamos quando os segredos do keystore forem realmente
     # fornecidos via Key Vault/Secrets ou variáveis de ambiente.
-    enabled: ${conexao-de-sorte-ssl-enabled:false}
+    enabled: false  # TLS termina no Traefik (ACME) - forçar false
     key-store: ${conexao-de-sorte-ssl-keystore-path:}
     key-store-password: ${conexao-de-sorte-ssl-keystore-password:}
     key-store-type: PKCS12
