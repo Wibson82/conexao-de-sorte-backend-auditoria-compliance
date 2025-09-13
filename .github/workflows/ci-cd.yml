@@ -252,6 +252,13 @@ jobs:
           REDIS_PORT=$(get_secret "conexao-de-sorte-redis-port"); echo "REDIS_PORT=${REDIS_PORT:-6379}" >> $GITHUB_ENV
           REDIS_PASSWORD=$(get_secret "conexao-de-sorte-redis-password"); echo "REDIS_PASSWORD=${REDIS_PASSWORD:-}" >> $GITHUB_ENV
           REDIS_DATABASE=$(get_secret "conexao-de-sorte-redis-database"); echo "REDIS_DATABASE=${REDIS_DATABASE:-1}" >> $GITHUB_ENV
+          
+          # Database (R2DBC/JDBC) para o serviço de Compliance
+          SPRING_R2DBC_URL=$(get_secret "conexao-de-sorte-database-r2dbc-url"); echo "SPRING_R2DBC_URL=${SPRING_R2DBC_URL:-}" >> $GITHUB_ENV
+          SPRING_FLYWAY_URL=$(get_secret "conexao-de-sorte-database-jdbc-url"); echo "SPRING_FLYWAY_URL=${SPRING_FLYWAY_URL:-}" >> $GITHUB_ENV
+          SPRING_FLYWAY_USER=$(get_secret "conexao-de-sorte-database-username"); echo "SPRING_FLYWAY_USER=${SPRING_FLYWAY_USER:-}" >> $GITHUB_ENV
+          SPRING_FLYWAY_PASSWORD=$(get_secret "conexao-de-sorte-database-password"); echo "SPRING_FLYWAY_PASSWORD=${SPRING_FLYWAY_PASSWORD:-}" >> $GITHUB_ENV
+
           JWT_ISSUER=$(get_secret "conexao-de-sorte-jwt-issuer"); echo "JWT_ISSUER=${JWT_ISSUER:-}" >> $GITHUB_ENV
           CORS_ALLOWED_ORIGINS=$(get_secret "conexao-de-sorte-cors-allowed-origins"); echo "CORS_ALLOWED_ORIGINS=${CORS_ALLOWED_ORIGINS:-}" >> $GITHUB_ENV
           CORS_ALLOW_CREDENTIALS=$(get_secret "conexao-de-sorte-cors-allow-credentials"); echo "CORS_ALLOW_CREDENTIALS=${CORS_ALLOW_CREDENTIALS:-true}" >> $GITHUB_ENV
@@ -311,6 +318,10 @@ jobs:
               --env SPRING_DATA_REDIS_HOST="${REDIS_HOST:-}" \
               --env SPRING_DATA_REDIS_PORT="${REDIS_PORT:-6379}" \
               --env SPRING_DATA_REDIS_DATABASE="${REDIS_DATABASE:-1}" \
+              --env SPRING_R2DBC_URL="${SPRING_R2DBC_URL:-}" \
+              --env SPRING_FLYWAY_URL="${SPRING_FLYWAY_URL:-}" \
+              --env SPRING_FLYWAY_USER="${SPRING_FLYWAY_USER:-}" \
+              --env SPRING_FLYWAY_PASSWORD="${SPRING_FLYWAY_PASSWORD:-}" \
               --env JWT_ISSUER="${JWT_ISSUER:-}" \
               --env CORS_ALLOWED_ORIGINS="${CORS_ALLOWED_ORIGINS:-}" \
               --env CORS_ALLOW_CREDENTIALS="${CORS_ALLOW_CREDENTIALS:-true}" \
@@ -373,6 +384,22 @@ jobs:
           echo "🎉 Auditoria Compliance microservice deployment completed successfully!"
           echo "🌐 API: https://auditoria-compliance.conexaodesorte.com.br"
 
+      - name: "🧹 Limpar recursos temporários e otimizar sistema"
+        if: always()
+        shell: bash
+        run: |
+          set -euo pipefail
+          echo "🧹 Limpando recursos temporários..."
+          echo "🗑️ Limpando imagens antigas não utilizadas..."
+          docker image prune -af --filter "until=24h" || true
+          echo "🗑️ Limpando containers parados..."
+          docker container prune -f || true
+          echo "🗑️ Limpando redes órfãs..."
+          docker network prune -f || true
+          echo "🗑️ Limpando volumes órfãos (apenas não nomeados)..."
+          docker volume prune -f --filter "label!=keep" || true
+          echo "✅ Limpeza concluída"
+
 # ----------------------------------------------------------------------
 # JOB 5 ▸ NOTIFY
 # ----------------------------------------------------------------------
@@ -395,3 +422,56 @@ jobs:
           curl -X POST -H 'Content-type: application/json' \
                --data "{\"text\":\"Auditoria Compliance – $RESULT\",\"attachments\":[{\"color\":\"$COLOR\"}]}" \
                "$WEBHOOK"
+
+# ----------------------------------------------------------------------
+# JOB 6 ▸ DIAGNÓSTICO EM CASO DE FALHA
+# ----------------------------------------------------------------------
+
+  diagnostics:
+    if: failure() && needs.deploy-selfhosted.result == 'failure'
+    needs: [deploy-selfhosted]
+    runs-on: [ self-hosted, Linux, X64, conexao, conexao-de-sorte-backend-auditoria-compliance ]
+    timeout-minutes: 10
+    steps:
+      - name: "🩺 Diagnóstico detalhado do ambiente (Auditoria/Compliance)"
+        shell: bash
+        run: |
+          echo "🩺 Executando diagnóstico do ambiente de produção..."
+          echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
+          echo "📅 Data/Hora: $(date)"
+          echo "🖥️  Uptime: $(uptime)"
+          echo "💽 Espaço em disco:"
+          df -h / || true
+          echo ""
+          echo "🐳 ESTADO DO DOCKER:"
+          echo "Versão Docker: $(docker version --format '{{.Server.Version}}' 2>/dev/null || echo 'N/A')"
+          docker info 2>/dev/null | head -20 || echo "Erro ao obter info do Docker"
+          echo ""
+          echo "🕸️  SERVIÇOS DOCKER SWARM:"
+          docker service ls 2>/dev/null || echo "Erro ao listar serviços"
+          echo ""
+          echo "🔎 DETALHES DO SERVIÇO AUDITORIA/COMPLIANCE:"
+          SERVICE_NAME="auditoria-compliance"
+          if docker service ls | grep -q "$SERVICE_NAME"; then
+            echo "Status do serviço ($SERVICE_NAME):"
+            docker service ps "$SERVICE_NAME" --no-trunc 2>/dev/null || true
+            echo ""
+            echo "Logs do serviço (últimas 100 linhas):"
+            docker service logs "$SERVICE_NAME" --tail 100 2>/dev/null || true
+          else
+            echo "❌ Serviço $SERVICE_NAME não encontrado"
+          fi
+          echo ""
+          echo "🌐 REDES DO PROJETO:"
+          docker network ls | grep conexao || echo "Redes do projeto não encontradas"
+          echo ""
+          echo "📈 USO DE RECURSOS:"
+          echo "Memória:"
+          free -h 2>/dev/null || echo "Comando free não disponível"
+          echo "CPU:"
+          top -bn1 | head -5 2>/dev/null || echo "Comando top não disponível"
+          echo ""
+          echo "🔐 DOCKER SECRETS DISPONÍVEIS:"
+          docker secret ls 2>/dev/null || echo "Erro ao listar Docker secrets"
+          echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
+          echo "✅ Diagnóstico concluído"
