@@ -27,7 +27,6 @@ services:
       context: .
       dockerfile: Dockerfile
       target: release
-      target: runtime
     image: conexaodesorte/auditoria:latest
     container_name: auditoria-service
     restart: unless-stopped
