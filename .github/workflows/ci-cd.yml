@@ -48,8 +48,8 @@ jobs:
       - name: "Guard: validar configurações obrigatórias (microservice)"
         shell: bash
         run: |
-          chmod +x .github/workflows/scripts/validate-required-files.sh
-          ./.github/workflows/scripts/validate-required-files.sh microservice auditoria-compliance
+          chmod +x "$GITHUB_WORKSPACE/.github/workflows/scripts/validate-required-files.sh"
+          "$GITHUB_WORKSPACE/.github/workflows/scripts/validate-required-files.sh" microservice auditoria-compliance
 
       - name: "Guard: proibir r2dbc:h2 fora de testes"
         shell: bash
@@ -134,8 +134,8 @@ jobs:
 
       - name: Verificar score de segurança (microservice)
         run: |
-          chmod +x .github/workflows/scripts/security-analysis.sh
-          ./.github/workflows/scripts/security-analysis.sh microservice 4 auditoria-compliance
+          chmod +x "$GITHUB_WORKSPACE/.github/workflows/scripts/security-analysis.sh"
+          "$GITHUB_WORKSPACE/.github/workflows/scripts/security-analysis.sh" microservice 4 auditoria-compliance
 # ----------------------------------------------------------------------
 # JOB 3 ▸ BUILD DA IMAGEM + PUSH GHCR
 # ----------------------------------------------------------------------
@@ -232,9 +232,9 @@ jobs:
         shell: bash
         run: |
           set -euo pipefail
-          chmod +x .github/workflows/scripts/sync-azure-keyvault-secrets.sh
+          chmod +x "$GITHUB_WORKSPACE/.github/workflows/scripts/sync-azure-keyvault-secrets.sh"
           VAULT_NAME="${{ secrets.AZURE_KEYVAULT_ENDPOINT }}"
-          ./.github/workflows/scripts/sync-azure-keyvault-secrets.sh "$VAULT_NAME" "auditoria-compliance"
+          "$GITHUB_WORKSPACE/.github/workflows/scripts/sync-azure-keyvault-secrets.sh" "$VAULT_NAME" "auditoria-compliance"
 
       - name: Carregar variáveis de ambiente a partir do Key Vault
         shell: bash
@@ -260,6 +260,7 @@ jobs:
           SPRING_FLYWAY_PASSWORD=$(get_secret "conexao-de-sorte-database-password"); echo "SPRING_FLYWAY_PASSWORD=${SPRING_FLYWAY_PASSWORD:-}" >> $GITHUB_ENV
 
           JWT_ISSUER=$(get_secret "conexao-de-sorte-jwt-issuer"); echo "JWT_ISSUER=${JWT_ISSUER:-}" >> $GITHUB_ENV
+          JWT_JWKS_URI=$(get_secret "conexao-de-sorte-jwt-jwks-uri"); echo "JWT_JWKS_URI=${JWT_JWKS_URI:-}" >> $GITHUB_ENV
           CORS_ALLOWED_ORIGINS=$(get_secret "conexao-de-sorte-cors-allowed-origins"); echo "CORS_ALLOWED_ORIGINS=${CORS_ALLOWED_ORIGINS:-}" >> $GITHUB_ENV
           CORS_ALLOW_CREDENTIALS=$(get_secret "conexao-de-sorte-cors-allow-credentials"); echo "CORS_ALLOW_CREDENTIALS=${CORS_ALLOW_CREDENTIALS:-true}" >> $GITHUB_ENV
 
@@ -312,6 +313,7 @@ jobs:
               --secret source=REDIS_DATABASE,target=REDIS_DATABASE \
               --secret source=JWT_SECRET,target=JWT_SECRET \
               --secret source=JWT_ISSUER,target=JWT_ISSUER \
+              --secret source=JWT_JWKS_URI,target=JWT_JWKS_URI \
               --env SPRING_PROFILES_ACTIVE=prod,azure \
               --env TZ=America/Sao_Paulo \
               --env SERVER_PORT=8085 \
@@ -323,6 +325,7 @@ jobs:
               --env SPRING_FLYWAY_USER="${SPRING_FLYWAY_USER:-}" \
               --env SPRING_FLYWAY_PASSWORD="${SPRING_FLYWAY_PASSWORD:-}" \
               --env JWT_ISSUER="${JWT_ISSUER:-}" \
+              --env JWT_JWKS_URI="${JWT_JWKS_URI:-}" \
               --env CORS_ALLOWED_ORIGINS="${CORS_ALLOWED_ORIGINS:-}" \
               --env CORS_ALLOW_CREDENTIALS="${CORS_ALLOW_CREDENTIALS:-true}" \
               --env AZURE_CLIENT_ID="${{ secrets.AZURE_CLIENT_ID }}" \
