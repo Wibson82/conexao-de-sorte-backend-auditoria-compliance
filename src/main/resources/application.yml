@@ -33,8 +33,8 @@ spring:
     oauth2:
       resourceserver:
         jwt:
-          jwk-set-uri: ${conexao-de-sorte-jwt-jwks-uri:http://localhost: ${conexao-de-sorte-redis-host:conexao-redis}
-          issuer-uri: ${conexao-de-sorte-jwt-issuer:https://auth.conexaodesorte.com}
+          jwk-set-uri: "${conexao-de-sorte-jwt-jwks-uri:https://auth.conexao-de-sorte.com.br/.well-known/jwks.json}"
+          issuer-uri: "${conexao-de-sorte-jwt-issuer:https://auth.conexao-de-sorte.com.br}"
 
   # R2DBC Configuration (Spring Boot 3.5.5 compatible)
   r2dbc:
@@ -80,7 +80,7 @@ spring:
     validate-on-migrate: false
 
 server:
-  port: ${conexao-de-sorte-server-port:8096}}
+  port: ${conexao-de-sorte-server-port:8085}
   shutdown: graceful
   
   # SSL/TLS Configuration
