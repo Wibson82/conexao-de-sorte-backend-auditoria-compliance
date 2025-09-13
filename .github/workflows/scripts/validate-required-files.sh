@@ -61,10 +61,10 @@ case "$PROJECT_TYPE" in
             "docker-compose.yml"
             "pom.xml"
             "src/main/resources/application.yml"
-            "src/main/resources/application-azure.yml"
             "src/main/java"
         )
         OPTIONAL_FILES=(
+            "src/main/resources/application-azure.yml"
             "src/main/resources/application-prod.yml"
             "src/main/resources/logback-spring.xml"
         )
