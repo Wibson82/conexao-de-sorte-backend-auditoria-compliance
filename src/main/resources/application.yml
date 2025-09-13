@@ -1,6 +1,6 @@
 spring:
   application:
-    name: auditoria-compliance
+    name: conexao-auditoria-compliance
     
   profiles:
     default: prod
@@ -33,7 +33,7 @@ spring:
     oauth2:
       resourceserver:
         jwt:
-          jwk-set-uri: ${conexao-de-sorte-jwt-jwks-uri:http://localhost:8081/.well-known/jwks.json}
+          jwk-set-uri: ${conexao-de-sorte-jwt-jwks-uri:http://localhost: ${conexao-de-sorte-redis-host:conexao-redis}
           issuer-uri: ${conexao-de-sorte-jwt-issuer:https://auth.conexaodesorte.com}
 
   # R2DBC Configuration (Spring Boot 3.5.5 compatible)
@@ -41,7 +41,7 @@ spring:
     # Preferencialmente usa -database-r2dbc-url; mantém compat com -database-url
     url: ${conexao-de-sorte-database-r2dbc-url:${conexao-de-sorte-database-url:r2dbc:mysql://mysql-proxy:6033/conexao_audit?useSSL=true&allowPublicKeyRetrieval=false}}
     username: ${conexao-de-sorte-database-username:}
-    password: ${conexao-de-sorte-database-password:}
+    password: ${conexao-de-sorte-redis-password:senha_teste}
     pool:
       enabled: true
       initial-size: 1
@@ -55,10 +55,10 @@ spring:
   # Redis Configuration (Spring Boot 3.5.5)
   data:
     redis:
-      host: ${conexao-de-sorte-redis-host:localhost}
+      host: ${conexao-de-sorte-redis-host:conexao-redis}
       port: ${conexao-de-sorte-redis-port:6379}
-      password: ${conexao-de-sorte-redis-password:}
-      database: 0
+      password: ${conexao-de-sorte-redis-password:senha_teste}
+      database: 6
       timeout: 3000ms
       connect-timeout: 10000ms
       lettuce:
@@ -74,20 +74,20 @@ spring:
     # Padroniza uso de -database-jdbc-url, mantendo compatibilidade com -database-flyway-url
     url: ${conexao-de-sorte-database-jdbc-url:${conexao-de-sorte-database-flyway-url:jdbc:mysql://mysql-proxy:6033/conexao_audit?useSSL=true&allowPublicKeyRetrieval=false}}
     user: ${conexao-de-sorte-database-username:}
-    password: ${conexao-de-sorte-database-password:}
+    password: ${conexao-de-sorte-redis-password:senha_teste}
     locations: classpath:db/migration
     baseline-on-migrate: true
     validate-on-migrate: false
 
 server:
-  port: ${conexao-de-sorte-server-port:8085}
+  port: ${conexao-de-sorte-server-port:8096}}
   shutdown: graceful
   
   # SSL/TLS Configuration
   ssl:
     enabled: ${conexao-de-sorte-ssl-enabled:false}
     key-store: ${conexao-de-sorte-ssl-keystore-path:}
-    key-store-password: ${conexao-de-sorte-ssl-keystore-password:}
+    key-store-password: ${conexao-de-sorte-redis-password:senha_teste}
     key-store-type: PKCS12
     
   error:
