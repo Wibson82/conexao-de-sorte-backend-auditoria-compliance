@@ -346,6 +346,7 @@
     </dependencies>
 
     <build>
+        <finalName>conexao-auditoria-compliance</finalName>
         <plugins>
             <!-- Spring Boot plugin -->
             <plugin>

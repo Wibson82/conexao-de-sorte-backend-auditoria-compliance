@@ -37,6 +37,20 @@ jobs:
     steps:
       - uses: actions/checkout@v4
 
+      - name: Setup Python para validação YAML (scripts)
+        uses: actions/setup-python@v4
+        with:
+          python-version: '3.x'
+
+      - name: Instalar dependências para validação YAML (pyyaml)
+        run: pip install --upgrade pip pyyaml
+
+      - name: "Guard: validar configurações obrigatórias (microservice)"
+        shell: bash
+        run: |
+          chmod +x .github/workflows/scripts/validate-required-files.sh
+          ./.github/workflows/scripts/validate-required-files.sh microservice auditoria-compliance
+
       - name: "Guard: proibir r2dbc:h2 fora de testes"
         shell: bash
         run: |
@@ -57,6 +71,7 @@ jobs:
             exit 1
           fi
 
+
 # ----------------------------------------------------------------------
 # JOB 2 ▸ BUILD + TEST + SAST/SCA
 # ----------------------------------------------------------------------
@@ -75,30 +90,65 @@ jobs:
           java-version: "24"
           cache: maven
 
+      # Validações de YAML e Docker Compose são cobertas por
+      # ./.github/workflows/scripts/validate-required-files.sh no job anterior
+
       - name: Build + Test + Package
-        run: ./mvnw package
+        env:
+          NVD_API_KEY: ${{ secrets.NVD_API_KEY }}
+        run: |
+          if [ -n "${NVD_API_KEY:-}" ]; then
+            echo "✅ NVD API Key configurada - varredura será acelerada"
+            export MAVEN_OPTS="$MAVEN_OPTS -DnvdApiKey=$NVD_API_KEY"
+          else
+            echo "⚠️ NVD API Key não configurada - varredura pode ser lenta"
+          fi
+          ./mvnw -B clean compile test package
 
       - name: Upload JAR artefact
         uses: actions/upload-artifact@v4
         with:
           name: auditoria-compliance-jar
-          path: target/*.jar
+          path: target/conexao-auditoria-compliance-*.jar
           retention-days: 1
 
+      - name: Upload configurações para deploy
+        uses: actions/upload-artifact@v4
+        with:
+          name: auditoria-compliance-configs
+          path: |
+            docker-compose.yml
+            Dockerfile
+          retention-days: 1
+
+# ----------------------------------------------------------------------
+# JOB 3 ▸ ANÁLISE DE SEGURANÇA
+# ----------------------------------------------------------------------
+
+  security-analysis:
+    needs: build-test-scan
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Verificar score de segurança (microservice)
+        run: |
+          chmod +x .github/workflows/scripts/security-analysis.sh
+          ./.github/workflows/scripts/security-analysis.sh microservice 4 auditoria-compliance
 # ----------------------------------------------------------------------
 # JOB 3 ▸ BUILD DA IMAGEM + PUSH GHCR
 # ----------------------------------------------------------------------
 
   build-image:
-    needs: build-test-scan
+    needs: [build-test-scan, security-analysis]
     runs-on: ubuntu-latest
     timeout-minutes: 30
     outputs:
-      image: ${{ steps.build.outputs.image }}
+      image-uri: ${{ steps.build-and-push.outputs.image-uri }}
     permissions:
-      packages: write
-      id-token: write
       contents: read
+      packages: write
     steps:
       - uses: actions/checkout@v4
 
@@ -108,47 +158,11 @@ jobs:
           name: auditoria-compliance-jar
           path: target
 
-      # ─── OIDC login no Azure para acessar Key Vault ───────────────────
-      - name: Azure Login (OIDC)
-        uses: azure/login@v2
+      - name: Download configurações
+        uses: actions/download-artifact@v4
         with:
-          client-id: ${{ secrets.AZURE_CLIENT_ID }}
-          tenant-id: ${{ secrets.AZURE_TENANT_ID }}
-          subscription-id: ${{ secrets.AZURE_SUBSCRIPTION_ID }}
-          enable-AzPSSession: false
-
-      - name: Extrair secrets auditoria-compliance (Key Vault) ▶ arquivos temporários
-        id: secrets
-        shell: bash
-        run: |
-          set -euo pipefail
-          VAULT_ENDPOINT="${{ secrets.AZURE_KEYVAULT_ENDPOINT }}"
-          if [[ "$VAULT_ENDPOINT" =~ https://([^.]+)\.vault\.azure\.net ]]; then
-            VAULT="${BASH_REMATCH[1]}"
-          else
-            echo "ERROR: Invalid AZURE_KEYVAULT_ENDPOINT format: $VAULT_ENDPOINT" >&2
-            exit 1
-          fi
-          
-          echo "Loading secrets from Azure Key Vault: $VAULT" >&2
-          
-          # Auditoria Compliance secrets
-          REDIS_PASS=$(az keyvault secret show --vault-name "$VAULT" --name conexao-de-sorte-redis-password --query value -o tsv 2>/dev/null)
-          JWT_SECRET=$(az keyvault secret show --vault-name "$VAULT" --name conexao-de-sorte-jwt-secret --query value -o tsv 2>/dev/null)
-          
-          # Validar secrets obrigatórios
-          if [ -z "$REDIS_PASS" ] || [ -z "$JWT_SECRET" ]; then
-            echo "ERROR: Required Auditoria Compliance secrets not found in Azure Key Vault $VAULT" >&2
-            exit 1
-          fi
-          
-          # Mascarar secrets nos logs
-          echo "::add-mask::$REDIS_PASS"
-          echo "::add-mask::$JWT_SECRET"
-          
-          # Salvar em arquivos temporários
-          printf "%s" "$REDIS_PASS" > redis_pass.txt
-          printf "%s" "$JWT_SECRET" > jwt_secret.txt
+          name: auditoria-compliance-configs
+          path: .
 
       # ─── Login no GHCR ────────────────────────────────────────────────
       - name: Login GHCR
@@ -161,27 +175,25 @@ jobs:
       - name: Setup Buildx
         uses: docker/setup-buildx-action@v3
 
-      - name: Build & Push Auditoria Compliance
-        id: build
+      - name: Build and Push Docker Image
+        id: build-and-push
         run: |
-          REPO_LOWER=$(echo "${{ github.repository }}" | tr '[:upper:]' '[:lower:]')
+          REPO_LOWERCASE=$(echo "${{ github.repository }}" | tr '[:upper:]' '[:lower:]')
           TIMESTAMP=$(date +'%d-%m-%Y-%H-%M')
-          IMAGE=ghcr.io/$REPO_LOWER/conexao-de-sorte-backend-auditoria-compliance:${TIMESTAMP}
-          
-          # Build com secrets
+          IMAGE_URI="ghcr.io/${REPO_LOWERCASE}/conexao-de-sorte-backend-auditoria-compliance:${TIMESTAMP}"
+
+          echo "🏗️ Building and pushing Auditoria/Compliance to ${IMAGE_URI}"
+
           docker buildx build \
-            --tag "$IMAGE" \
+            --platform linux/amd64 \
             --push \
-            --provenance=true \
-            --sbom=true \
-            --secret id=redis_password,src=redis_pass.txt \
-            --secret id=jwt_secret,src=jwt_secret.txt \
-            --file Dockerfile .
-          
-          # Limpar arquivos de secrets
-          rm -f redis_pass.txt jwt_secret.txt
-          
-          echo "image=$IMAGE" >> "$GITHUB_OUTPUT"
+            --tag "${IMAGE_URI}" \
+            --tag "ghcr.io/${REPO_LOWERCASE}/conexao-de-sorte-backend-auditoria-compliance:latest" \
+            --cache-from type=gha \
+            --cache-to type=gha,mode=max \
+            .
+          echo "image-uri=${IMAGE_URI}" >> $GITHUB_OUTPUT
+          echo "✅ Image built and pushed successfully"
 
 # ----------------------------------------------------------------------
 # JOB 4 ▸ DEPLOY SELF‑HOSTED (Docker Swarm + secrets)
@@ -206,7 +218,7 @@ jobs:
           password: ${{ secrets.GITHUB_TOKEN }}
 
       - name: Pull imagem do GHCR
-        run: docker pull "${{ needs.build-image.outputs.image }}"
+        run: docker pull "${{ needs.build-image.outputs.image-uri }}"
 
       - name: Azure Login (OIDC)
         uses: azure/login@v2
@@ -216,7 +228,15 @@ jobs:
           subscription-id: ${{ secrets.AZURE_SUBSCRIPTION_ID }}
           enable-AzPSSession: false
 
-      - name: Carregar todos os segredos do Azure Key Vault
+      - name: Sincronizar Azure Key Vault → Docker Secrets (padronizado)
+        shell: bash
+        run: |
+          set -euo pipefail
+          chmod +x .github/workflows/scripts/sync-azure-keyvault-secrets.sh
+          VAULT_NAME="${{ secrets.AZURE_KEYVAULT_ENDPOINT }}"
+          ./.github/workflows/scripts/sync-azure-keyvault-secrets.sh "$VAULT_NAME" "auditoria-compliance"
+
+      - name: Carregar variáveis de ambiente a partir do Key Vault
         shell: bash
         run: |
           set -euo pipefail
@@ -227,53 +247,14 @@ jobs:
             echo "ERROR: Invalid AZURE_KEYVAULT_ENDPOINT format: $VAULT_ENDPOINT" >&2
             exit 1
           fi
-          
-          echo "🔐 Loading all secrets from Azure Key Vault: $VAULT" >&2
-          
-          # Função para obter secret com fallback gracioso
-          get_secret() {
-            local secret_name="$1"
-            local fallback_value="$2"
-            local secret_value
-            
-            secret_value=$(az keyvault secret show --vault-name "$VAULT" --name "$secret_name" --query value -o tsv 2>/dev/null || echo "")
-            if [ -z "$secret_value" ]; then
-              if [ -n "$fallback_value" ]; then
-                echo "⚠️ Secret $secret_name not found, using fallback" >&2
-                echo "$fallback_value"
-              else
-                echo "❌ Secret $secret_name not found and no fallback provided" >&2
-                return 1
-              fi
-            else
-              echo "✅ Secret $secret_name loaded successfully" >&2
-              echo "$secret_value"
-            fi
-          }
-          
-          # Carregar segredos com fallbacks seguros
-          REDIS_HOST=$(get_secret "conexao-de-sorte-redis-host" "localhost")
-          REDIS_PORT=$(get_secret "conexao-de-sorte-redis-port" "6379")
-          REDIS_PASSWORD=$(get_secret "conexao-de-sorte-redis-password" "")
-          REDIS_DATABASE=$(get_secret "conexao-de-sorte-redis-database" "3")
-          
-          JWT_SECRET=$(get_secret "conexao-de-sorte-jwt-secret" "")
-          JWT_ISSUER=$(get_secret "conexao-de-sorte-jwt-issuer" "https://conexaodesorte.com.br")
-          
-          CORS_ALLOWED_ORIGINS=$(get_secret "conexao-de-sorte-cors-allowed-origins" "https://conexaodesorte.com.br")
-          CORS_ALLOW_CREDENTIALS=$(get_secret "conexao-de-sorte-cors-allow-credentials" "false")
-          
-          # Criar/atualizar Docker secrets
-          printf "%s" "$REDIS_PASSWORD" | docker secret create auditoria-compliance_redis_password - 2>/dev/null || docker secret update auditoria-compliance_redis_password -
-          printf "%s" "$JWT_SECRET" | docker secret create auditoria-compliance_jwt_secret - 2>/dev/null || docker secret update auditoria-compliance_jwt_secret -
-          
-          # Salvar variáveis de ambiente para o próximo step
-          echo "REDIS_HOST=$REDIS_HOST" >> $GITHUB_ENV
-          echo "REDIS_PORT=$REDIS_PORT" >> $GITHUB_ENV
-          echo "REDIS_DATABASE=$REDIS_DATABASE" >> $GITHUB_ENV
-          echo "JWT_ISSUER=$JWT_ISSUER" >> $GITHUB_ENV
-          echo "CORS_ALLOWED_ORIGINS=$CORS_ALLOWED_ORIGINS" >> $GITHUB_ENV
-          echo "CORS_ALLOW_CREDENTIALS=$CORS_ALLOW_CREDENTIALS" >> $GITHUB_ENV
+          get_secret() { az keyvault secret show --vault-name "$VAULT" --name "$1" --query value -o tsv 2>/dev/null || true; }
+          REDIS_HOST=$(get_secret "conexao-de-sorte-redis-host"); echo "REDIS_HOST=${REDIS_HOST:-}" >> $GITHUB_ENV
+          REDIS_PORT=$(get_secret "conexao-de-sorte-redis-port"); echo "REDIS_PORT=${REDIS_PORT:-6379}" >> $GITHUB_ENV
+          REDIS_PASSWORD=$(get_secret "conexao-de-sorte-redis-password"); echo "REDIS_PASSWORD=${REDIS_PASSWORD:-}" >> $GITHUB_ENV
+          REDIS_DATABASE=$(get_secret "conexao-de-sorte-redis-database"); echo "REDIS_DATABASE=${REDIS_DATABASE:-1}" >> $GITHUB_ENV
+          JWT_ISSUER=$(get_secret "conexao-de-sorte-jwt-issuer"); echo "JWT_ISSUER=${JWT_ISSUER:-}" >> $GITHUB_ENV
+          CORS_ALLOWED_ORIGINS=$(get_secret "conexao-de-sorte-cors-allowed-origins"); echo "CORS_ALLOWED_ORIGINS=${CORS_ALLOWED_ORIGINS:-}" >> $GITHUB_ENV
+          CORS_ALLOW_CREDENTIALS=$(get_secret "conexao-de-sorte-cors-allow-credentials"); echo "CORS_ALLOW_CREDENTIALS=${CORS_ALLOW_CREDENTIALS:-true}" >> $GITHUB_ENV
 
       - name: 🧹 Cleanup existing deployment
         run: |
@@ -293,7 +274,7 @@ jobs:
       - name: Deploy via docker service (update/create)
         run: |
           set -euo pipefail
-          IMAGE="${{ needs.build-image.outputs.image }}"
+          IMAGE="${{ needs.build-image.outputs.image-uri }}"
           SERVICE_NAME="${{ env.SERVICE_NAME }}"
           PORT=8096
           NETWORK_NAME="conexao-network-swarm"
@@ -317,18 +298,22 @@ jobs:
               --image "$IMAGE" \
               --network "$NETWORK_NAME" \
               --detach=false \
-              --publish ${PORT}:8080 \
-              --secret ${SERVICE_NAME}_redis_password \
-              --secret ${SERVICE_NAME}_jwt_secret \
+              --publish ${PORT}:8085 \
+              --secret source=REDIS_HOST,target=REDIS_HOST \
+              --secret source=REDIS_PORT,target=REDIS_PORT \
+              --secret source=REDIS_PASSWORD,target=REDIS_PASSWORD \
+              --secret source=REDIS_DATABASE,target=REDIS_DATABASE \
+              --secret source=JWT_SECRET,target=JWT_SECRET \
+              --secret source=JWT_ISSUER,target=JWT_ISSUER \
               --env SPRING_PROFILES_ACTIVE=prod,azure \
               --env TZ=America/Sao_Paulo \
-              --env SERVER_PORT=8080 \
+              --env SERVER_PORT=8085 \
               --env SPRING_DATA_REDIS_HOST="${REDIS_HOST:-}" \
-              --env SPRING_DATA_REDIS_PORT="${REDIS_PORT:-}" \
-              --env SPRING_DATA_REDIS_DATABASE="${REDIS_DATABASE:-}" \
+              --env SPRING_DATA_REDIS_PORT="${REDIS_PORT:-6379}" \
+              --env SPRING_DATA_REDIS_DATABASE="${REDIS_DATABASE:-1}" \
               --env JWT_ISSUER="${JWT_ISSUER:-}" \
               --env CORS_ALLOWED_ORIGINS="${CORS_ALLOWED_ORIGINS:-}" \
-              --env CORS_ALLOW_CREDENTIALS="${CORS_ALLOW_CREDENTIALS:-}" \
+              --env CORS_ALLOW_CREDENTIALS="${CORS_ALLOW_CREDENTIALS:-true}" \
               --env AZURE_CLIENT_ID="${{ secrets.AZURE_CLIENT_ID }}" \
               --env AZURE_TENANT_ID="${{ secrets.AZURE_TENANT_ID }}" \
               --env AZURE_KEYVAULT_ENDPOINT="${{ secrets.AZURE_KEYVAULT_ENDPOINT }}" \
@@ -382,7 +367,7 @@ jobs:
           SERVICE_CONTAINER=$(docker ps --filter "name=auditoria-compliance" --format "{{.Names}}" | head -1 || echo "")
           if [ -n "$SERVICE_CONTAINER" ]; then
             echo "🌐 Testando health endpoint..."
-            docker exec "$SERVICE_CONTAINER" curl -f http://localhost:8080/actuator/health 2>/dev/null && echo "✅ Auditoria Compliance health OK" || echo "⚠️ Auditoria Compliance health test failed"
+            docker exec "$SERVICE_CONTAINER" curl -f http://localhost:8085/actuator/health 2>/dev/null && echo "✅ Auditoria Compliance health OK" || echo "⚠️ Auditoria Compliance health test failed"
           fi
           
           echo "🎉 Auditoria Compliance microservice deployment completed successfully!"
