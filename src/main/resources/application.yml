@@ -41,7 +41,7 @@ spring:
     # Preferencialmente usa -database-r2dbc-url; mantém compat com -database-url
     url: ${conexao-de-sorte-database-r2dbc-url:${conexao-de-sorte-database-url:r2dbc:mysql://mysql-proxy:6033/conexao_audit?useSSL=true&allowPublicKeyRetrieval=false}}
     username: ${conexao-de-sorte-database-username:}
-    password: ${conexao-de-sorte-redis-password:senha_teste}
+    password: ${conexao-de-sorte-database-password:senha_teste}
     pool:
       enabled: true
       initial-size: 1
