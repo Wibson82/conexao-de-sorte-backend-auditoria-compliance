@@ -16,17 +16,12 @@ spring:
       - optional:configtree:/mnt/secrets/
       - optional:file:./secrets.properties
       
-  # Azure Key Vault (padrão simplificado)
+  # Azure Key Vault (configuração movida para application-azure.yml)
   cloud:
     azure:
       keyvault:
         secret:
-          enabled: ${AZURE_KEYVAULT_ENABLED:true}
-          endpoint: ${AZURE_KEYVAULT_ENDPOINT:}
-      profile:
-        tenant-id: ${AZURE_TENANT_ID:}
-        subscription-id: ${AZURE_SUBSCRIPTION_ID:}
-        client-id: ${AZURE_CLIENT_ID:}
+          enabled: ${AZURE_KEYVAULT_ENABLED:false}  # Apenas habilitado no perfil azure
 
   # OAuth2 Resource Server - JWT validation via JWKS
   security:

@@ -1,0 +1,321 @@
+# ============================================================================
+# 📋 CONFIGURAÇÃO MICROSERVIÇO AUDITORIA-COMPLIANCE - APPLICATION-AZURE.YML
+# ============================================================================
+#
+# Configuração específica para Azure Cloud com OIDC e Key Vault
+# - Azure Key Vault integration com workload identity
+# - OIDC authentication sem Client Secret
+# - Configurações de produção otimizadas para auditoria e compliance
+# - Logs estruturados para análise de conformidade
+#
+# Perfil: azure (usado em produção no Azure)
+#
+# @author Sistema de Migração R2DBC
+# @version 1.0
+# @since 2024
+# ============================================================================
+
+spring:
+  config:
+    activate:
+      on-profile: azure
+
+  # ========================================
+  # 🔐 AZURE KEY VAULT CONFIGURATION
+  # ========================================
+  cloud:
+    azure:
+      keyvault:
+        secret:
+          enabled: true
+          endpoint: ${AZURE_KEYVAULT_ENDPOINT}
+          case-sensitive: false
+          secret-keys: >
+            conexao-de-sorte-database-r2dbc-url,
+            conexao-de-sorte-database-jdbc-url,
+            conexao-de-sorte-database-username,
+            conexao-de-sorte-database-password,
+            conexao-de-sorte-redis-password,
+            conexao-de-sorte-jwt-jwks-uri,
+            conexao-de-sorte-jwt-issuer,
+            conexao-de-sorte-cors-allowed-origins
+      profile:
+        tenant-id: ${AZURE_TENANT_ID}
+        subscription-id: ${AZURE_SUBSCRIPTION_ID}
+        # client-id configurado via workload identity
+
+  # ========================================
+  # 🗄️ DATABASE CONFIGURATION
+  # ========================================
+  r2dbc:
+    url: ${conexao-de-sorte-database-r2dbc-url}
+    username: ${conexao-de-sorte-database-username}
+    password: ${conexao-de-sorte-database-password}
+    pool:
+      initial-size: 2
+      max-size: 12
+      max-idle-time: 25m
+      max-acquire-time: 20s
+      max-create-connection-time: 10s
+      max-life-time: 40m
+      validation-query: SELECT 1
+
+  flyway:
+    enabled: true
+    url: ${conexao-de-sorte-database-jdbc-url}
+    user: ${conexao-de-sorte-database-username}
+    password: ${conexao-de-sorte-database-password}
+    locations: classpath:db/migration
+    baseline-on-migrate: true
+    validate-on-migrate: true
+    clean-disabled: true
+
+  # ========================================
+  # 💾 REDIS CONFIGURATION
+  # ========================================
+  data:
+    redis:
+      host: ${conexao-de-sorte-redis-host:conexao-redis}
+      port: ${conexao-de-sorte-redis-port:6379}
+      password: ${conexao-de-sorte-redis-password}
+      database: 4  # Auditoria = DB 4 (conforme padronização)
+      timeout: 2000ms
+      connect-timeout: 8000ms
+      lettuce:
+        pool:
+          enabled: true
+          max-active: 18
+          max-idle: 8
+          min-idle: 4
+          max-wait: 2000ms
+          time-between-eviction-runs: 30000ms
+        cluster:
+          refresh:
+            adaptive: true
+            period: 45s
+        shutdown-timeout: 100ms
+      client-type: lettuce
+
+  # ========================================
+  # 🔐 SECURITY CONFIGURATION
+  # ========================================
+  security:
+    oauth2:
+      resourceserver:
+        jwt:
+          jwk-set-uri: ${conexao-de-sorte-jwt-jwks-uri}
+          issuer-uri: ${conexao-de-sorte-jwt-issuer}
+          cache-duration: PT15M
+
+# ========================================
+# 🌐 SERVER CONFIGURATION
+# ========================================
+server:
+  port: ${conexao-de-sorte-server-port:8086}
+  shutdown: graceful
+  ssl:
+    enabled: false  # TLS termination no Traefik
+  error:
+    include-message: never
+    include-binding-errors: never
+    include-stacktrace: never
+    include-exception: false
+  netty:
+    connection-timeout: 15s
+    idle-timeout: 45s
+  compression:
+    enabled: true
+    mime-types: application/json,text/plain,text/css,application/javascript
+    min-response-size: 1024
+  forward-headers-strategy: native
+
+# ========================================
+# 📊 MANAGEMENT & OBSERVABILITY
+# ========================================
+management:
+  endpoints:
+    web:
+      exposure:
+        include: health,info,metrics,prometheus,auditevents
+      base-path: /actuator
+      cors:
+        allowed-origins: ${conexao-de-sorte-cors-allowed-origins}
+        allowed-methods: GET,POST,PUT,DELETE,OPTIONS,HEAD
+    jmx:
+      exposure:
+        include: health,metrics,prometheus,info,auditevents
+  endpoint:
+    health:
+      show-details: when-authorized
+      show-components: always
+      probes:
+        enabled: true
+    prometheus:
+      access: unrestricted
+    auditevents:
+      enabled: true
+  info:
+    env:
+      enabled: true
+    java:
+      enabled: true
+    os:
+      enabled: true
+  prometheus:
+    metrics:
+      export:
+        enabled: true
+        step: 30s
+  observations:
+    http:
+      server:
+        requests:
+          name: http.server.requests
+  metrics:
+    distribution:
+      percentiles-histogram:
+        '[http.server.requests]': true
+      slo:
+        '[http.server.requests]': 50ms,100ms,200ms,500ms,1s,2s
+  tracing:
+    enabled: true
+    sampling:
+      probability: ${TRACING_PROBABILITY:0.2}  # Maior sampling para auditoria
+
+# ========================================
+# 📝 LOGGING CONFIGURATION
+# ========================================
+logging:
+  level:
+    root: INFO
+    '[br.tec.facilitaservicos.auditoria]': INFO
+    '[org.springframework.data.r2dbc]': INFO
+    '[org.springframework.security]': INFO
+    '[org.springframework.boot.actuator.audit]': DEBUG  # Logs detalhados para auditoria
+    '[org.springframework.cache]': INFO
+    '[reactor.netty]': WARN
+    '[com.azure]': WARN
+  pattern:
+    console: "%clr(%d{HH:mm:ss.SSS}){faint} %clr(${LOG_LEVEL_PATTERN:-%5p}) %clr([%t]){faint} %clr(%-40.40logger{39}){cyan} %clr(:){faint} %m%n%wEx"
+    # Formato estruturado para auditoria em produção
+    file: "%d{yyyy-MM-dd HH:mm:ss.SSS} [%thread] %-5level [%X{traceId:-},%X{spanId:-}] [%X{userId:-},%X{sessionId:-}] %logger{36} - %msg%n"
+  file:
+    name: ${LOG_FILE:/app/logs/auditoria-compliance.log}
+    max-size: ${LOG_FILE_MAX_SIZE:100MB}  # Maior para logs de auditoria
+    max-history: ${LOG_FILE_MAX_HISTORY:30}  # Retenção maior para compliance
+
+# ========================================
+# 🔧 CACHE CONFIGURATION
+# ========================================
+spring:
+  cache:
+    type: redis
+    redis:
+      time-to-live: 1800000ms  # 30 minutos para cache de auditoria
+      cache-null-values: false
+      use-key-prefix: true
+      key-prefix: "audit:"
+    cache-names:
+      - audit-events
+      - compliance-rules
+      - audit-reports
+      - user-activities
+      - system-events
+
+# ========================================
+# 🌐 CORS CONFIGURATION
+# ========================================
+app:
+  cors:
+    allowed-origins: ${conexao-de-sorte-cors-allowed-origins}
+    allowed-methods: GET,POST,PUT,DELETE,OPTIONS,HEAD
+    allowed-headers: "*"
+    allow-credentials: ${conexao-de-sorte-cors-allow-credentials:true}
+    max-age: 3600
+
+# ========================================
+# 📋 AUDIT CONFIGURATION
+# ========================================
+audit:
+  events:
+    enabled: true
+    store-in-database: true
+    retention-days: 90  # 90 dias de retenção
+    capture-request-details: true
+    capture-response-details: false  # Por segurança
+  compliance:
+    lgpd:
+      enabled: true
+      data-retention-days: 2555  # ~7 anos conforme LGPD
+      anonymization-enabled: true
+    sox:
+      enabled: true
+      financial-controls: true
+    iso27001:
+      enabled: true
+      security-controls: true
+  notifications:
+    critical-events:
+      enabled: true
+      webhook-url: ${AUDIT_WEBHOOK_URL:}
+    daily-reports:
+      enabled: true
+      recipients: ${AUDIT_REPORT_RECIPIENTS:}
+
+# ========================================
+# 🛡️ RESILIENCE4J CONFIGURATION
+# ========================================
+resilience4j:
+  circuitbreaker:
+    instances:
+      database:
+        sliding-window-size: 100
+        minimum-number-of-calls: 10
+        failure-rate-threshold: 50
+        wait-duration-in-open-state: 30s
+        permitted-number-of-calls-in-half-open-state: 5
+      redis:
+        sliding-window-size: 50
+        minimum-number-of-calls: 5
+        failure-rate-threshold: 60
+        wait-duration-in-open-state: 15s
+      external-notifications:
+        sliding-window-size: 30
+        minimum-number-of-calls: 3
+        failure-rate-threshold: 70
+        wait-duration-in-open-state: 60s
+  ratelimiter:
+    instances:
+      audit-service:
+        limit-for-period: 200
+        limit-refresh-period: 1m
+        timeout-duration: 3s
+      report-generation:
+        limit-for-period: 10
+        limit-refresh-period: 1h
+        timeout-duration: 30s
+
+# ========================================
+# 🔒 SECURITY HEADERS
+# ========================================
+security:
+  headers:
+    content-security-policy: >-
+      "default-src 'self'; script-src 'self'; style-src 'self' 'unsafe-inline';
+      img-src 'self' data: https:; connect-src 'self'"
+    x-content-type-options: nosniff
+    x-frame-options: DENY
+    x-xss-protection: "1; mode=block"
+    strict-transport-security: "max-age=31536000; includeSubDomains"
+
+# ========================================
+# 📊 OPENAPI DOCUMENTATION
+# ========================================
+springdoc:
+  api-docs:
+    enabled: true
+    path: /v3/api-docs
+  swagger-ui:
+    enabled: false  # Desabilitado em produção Azure por segurança
+    path: /swagger-ui.html
+  show-actuator: false
