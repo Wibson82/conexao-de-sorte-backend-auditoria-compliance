@@ -4,7 +4,7 @@
 #
 # Dockerfile otimizado para microserviço reativo com:
 # - Multi-stage build para reduzir tamanho da imagem
-# - Java 21 LTS com JVM otimizada para containers
+# - Java 24 com JVM otimizada para containers
 # - Usuário não-root para segurança
 # - Health check nativo
 # - Otimizações de performance
@@ -19,7 +19,7 @@
 # ============================================================================
 
 # === ESTÁGIO 1: BUILD ===
-FROM maven:3.9.11-eclipse-temurin-21-alpine AS builder
+FROM maven:3.9.11-eclipse-temurin-24-alpine AS builder
 
 # Metadados da imagem
 LABEL maintainer="Conexão de Sorte <tech@conexaodesorte.com>"
@@ -60,7 +60,7 @@ RUN --mount=type=cache,target=/root/.m2 \
     -Dmaven.wagon.rto=300000
 
 # === ESTÁGIO 2: RUNTIME ===
-FROM eclipse-temurin:21-jre-alpine AS runtime
+FROM eclipse-temurin:24-jre-alpine AS runtime
 
 # Instalar dependências do sistema
 RUN apk add --no-cache \
