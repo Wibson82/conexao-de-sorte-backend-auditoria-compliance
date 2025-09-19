@@ -4,11 +4,11 @@
 #
 # Dockerfile otimizado para microserviço reativo com:
 # - Multi-stage build para reduzir tamanho da imagem
-# - Java 24 com JVM otimizada para containers
+# - Java 21 LTS com JVM otimizada para containers
 # - Usuário não-root para segurança
 # - Health check nativo
 # - Otimizações de performance
-# - Suporte a debug remoto (desenvolvimento)
+# - Sem hardcoded secrets (usa external secrets)
 #
 # Build: docker build -t conexaodesorte/auditoria:latest .
 # Run: docker run -p 8085:8085 conexaodesorte/auditoria:latest
@@ -19,7 +19,7 @@
 # ============================================================================
 
 # === ESTÁGIO 1: BUILD ===
-FROM maven:3.9.11-eclipse-temurin-24-alpine AS builder
+FROM maven:3.9.11-eclipse-temurin-21-alpine AS builder
 
 # Metadados da imagem
 LABEL maintainer="Conexão de Sorte <tech@conexaodesorte.com>"
@@ -60,7 +60,7 @@ RUN --mount=type=cache,target=/root/.m2 \
     -Dmaven.wagon.rto=300000
 
 # === ESTÁGIO 2: RUNTIME ===
-FROM eclipse-temurin:24-jre-alpine AS runtime
+FROM eclipse-temurin:21-jre-alpine AS runtime
 
 # Instalar dependências do sistema
 RUN apk add --no-cache \
@@ -83,38 +83,9 @@ WORKDIR /app
 # Copiar JAR da aplicação do estágio de build
 COPY --from=builder --chown=appuser:appgroup /build/target/*.jar app.jar
 
-# Build-time args → ENV
-ARG CONEXAO_DE_SORTE_DATABASE_URL
-ARG CONEXAO_DE_SORTE_DATABASE_JDBC_URL
-ARG CONEXAO_DE_SORTE_DATABASE_R2DBC_URL
-ARG CONEXAO_DE_SORTE_DATABASE_USERNAME
-ARG CONEXAO_DE_SORTE_DATABASE_PASSWORD
-ARG CONEXAO_DE_SORTE_REDIS_HOST
-ARG CONEXAO_DE_SORTE_REDIS_PORT
-ARG CONEXAO_DE_SORTE_REDIS_PASSWORD
-ARG CONEXAO_DE_SORTE_REDIS_DATABASE
-ARG CONEXAO_DE_SORTE_JWT_ISSUER
-ARG CONEXAO_DE_SORTE_JWT_JWKS_URI
-
-ENV CONEXAO_DE_SORTE_DATABASE_URL=${CONEXAO_DE_SORTE_DATABASE_URL} \
-    CONEXAO_DE_SORTE_DATABASE_JDBC_URL=${CONEXAO_DE_SORTE_DATABASE_JDBC_URL} \
-    CONEXAO_DE_SORTE_DATABASE_R2DBC_URL=${CONEXAO_DE_SORTE_DATABASE_R2DBC_URL} \
-    CONEXAO_DE_SORTE_DATABASE_USERNAME=${CONEXAO_DE_SORTE_DATABASE_USERNAME} \
-    CONEXAO_DE_SORTE_DATABASE_PASSWORD=${CONEXAO_DE_SORTE_DATABASE_PASSWORD} \
-    CONEXAO_DE_SORTE_REDIS_HOST=${CONEXAO_DE_SORTE_REDIS_HOST} \
-    CONEXAO_DE_SORTE_REDIS_PORT=${CONEXAO_DE_SORTE_REDIS_PORT} \
-    CONEXAO_DE_SORTE_REDIS_PASSWORD=${CONEXAO_DE_SORTE_REDIS_PASSWORD} \
-    CONEXAO_DE_SORTE_REDIS_DATABASE=${CONEXAO_DE_SORTE_REDIS_DATABASE} \
-    CONEXAO_DE_SORTE_JWT_ISSUER=${CONEXAO_DE_SORTE_JWT_ISSUER} \
-    CONEXAO_DE_SORTE_JWT_JWKS_URI=${CONEXAO_DE_SORTE_JWT_JWKS_URI}
-## JVM otimizada para containers: flags removidas para compatibilidade total com Java 24
-# As flags e perfis devem ser definidos externamente via workflow/deploy
-
 # Preparar diretório de logs gravável pelo app
 RUN mkdir -p /app/logs && \
     chown -R appuser:appgroup /app/logs
-
-# Variáveis de ambiente da aplicação devem ser fornecidas externamente (CI/Compose/Helm)
 
 # Expor porta da aplicação
 EXPOSE 8085
