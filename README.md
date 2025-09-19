@@ -1,14 +1,204 @@
-# 📋 Microserviço de Auditoria & Compliance
+# 📊 Microserviço de Auditoria & Compliance
 
-[![Java](https://img.shields.io/badge/Java-24-orange.svg)](https://openjdk.java.net/)
-[![Spring Boot](https://img.shields.io/badge/Spring%20Boot-3.5+-green.svg)](https://spring.io/projects/spring-boot)
-[![WebFlux](https://img.shields.io/badge/WebFlux-Reactive-blue.svg)](https://docs.spring.io/spring-framework/docs/current/reference/html/web-reactive.html)
-[![R2DBC](https://img.shields.io/badge/R2DBC-Reactive-purple.svg)](https://r2dbc.io/)
-[![Event Sourcing](https://img.shields.io/badge/Event%20Sourcing-Axon-green.svg)](https://axoniq.io/)
-[![WORM Storage](https://img.shields.io/badge/WORM-Storage-red.svg)](https://en.wikipedia.org/wiki/Write_once_read_many)
-[![Docker](https://img.shields.io/badge/Docker-Ready-blue.svg)](https://www.docker.com/)
+## 🎯 Visão Geral
 
-Microserviço **100% reativo** para auditoria e compliance, construído com Spring WebFlux, Event Sourcing (Axon), WORM storage e trilhas imutáveis de auditoria.
+Microserviço responsável por auditoria, compliance e integridade de dados no ecossistema Conexão de Sorte. Implementa controles LGPD, SOX e trilhas de auditoria imutáveis com validação criptográfica.
+
+## 🔐 Configuração de Segredos
+
+### **GitHub Repository Variables (vars)**
+```env
+AZURE_CLIENT_ID=<client-id>
+AZURE_TENANT_ID=<tenant-id>
+AZURE_SUBSCRIPTION_ID=<subscription-id>
+AZURE_KEYVAULT_NAME=<vault-name>
+AZURE_KEYVAULT_ENDPOINT=https://<vault-name>.vault.azure.net/
+```
+
+### **Azure Key Vault Secrets (12 necessários)**
+
+#### **Banco de Dados (3)**
+- `conexao-de-sorte-database-r2dbc-url`
+- `conexao-de-sorte-database-username`
+- `conexao-de-sorte-database-password`
+
+#### **Redis (4)**
+- `conexao-de-sorte-redis-host`
+- `conexao-de-sorte-redis-port`
+- `conexao-de-sorte-redis-password`
+- `conexao-de-sorte-redis-database`
+
+#### **JWT (5)**
+- `conexao-de-sorte-jwt-issuer`
+- `conexao-de-sorte-jwt-jwks-uri`
+- `conexao-de-sorte-jwt-secret`
+- `conexao-de-sorte-jwt-signing-key`
+- `conexao-de-sorte-jwt-verification-key`
+
+## 🏃‍♂️ Runners Self-Hosted
+
+### **Labels Obrigatórios**
+```yaml
+runs-on: [self-hosted, Linux, X64, srv649924, conexao, conexao-de-sorte-backend-auditoria-compliance]
+```
+
+### **Servidor Hostinger**
+- **Host:** srv649924
+- **Serviço:** `conexao-de-sorte-backend-auditoria-compliance`
+- **Status:** Verificar com `systemctl status conexao-de-sorte-backend-auditoria-compliance`
+
+## 🚀 Deploy e Execução
+
+### **Local Development**
+```bash
+# Configurar variáveis de ambiente
+cp .env.example .env
+# Editar .env com valores locais
+
+# Executar com Docker Compose
+docker-compose up -d
+
+# Verificar saúde
+curl http://localhost:8085/actuator/health
+```
+
+### **Staging/Production**
+```bash
+# Deploy via GitHub Actions (automático)
+# Trigger: push para main ou workflow_dispatch
+
+# Verificar deploy
+curl http://srv649924:8085/actuator/health
+```
+
+## 🔍 Monitoramento
+
+### **Health Checks**
+- **Endpoint:** `/actuator/health`
+- **Porta:** 8085
+- **Timeout:** 10s
+- **Intervalo:** 30s
+
+### **Métricas**
+- **Prometheus:** `/actuator/prometheus`
+- **Grafana:** Integrado com backend-observabilidade
+- **Jaeger:** Tracing distribuído habilitado
+
+## 🛠️ Desenvolvimento
+
+### **Pré-requisitos**
+- Java 21 LTS
+- Maven 3.9+
+- Docker & Docker Compose
+- Azure CLI (para secrets)
+
+### **Build Local**
+```bash
+# Compilar
+./mvnw clean compile
+
+# Testes (requer configuração DB)
+./mvnw test
+
+# Build Docker
+docker build -t auditoria-compliance:local .
+```
+
+### **Estrutura do Projeto**
+```
+src/
+├── main/java/br/tec/facilitaservicos/auditoria/
+│   ├── aplicacao/          # Casos de uso e serviços
+│   ├── dominio/           # Entidades e repositórios
+│   ├── infraestrutura/    # Configurações e adaptadores
+│   └── apresentacao/      # Controllers REST
+└── test/                  # Testes unitários e integração
+```
+
+## 📋 Compliance
+
+### **LGPD**
+- ✅ Retenção de dados configurável
+- ✅ Anonimização automática
+- ✅ Trilha de consentimento
+- ✅ Relatórios de conformidade
+
+### **SOX**
+- ✅ Controles financeiros
+- ✅ Trilha de auditoria imutável
+- ✅ Segregação de funções
+- ✅ Validação criptográfica
+
+### **Segurança**
+- ✅ OIDC Authentication
+- ✅ Secrets via Azure Key Vault
+- ✅ Container não-root
+- ✅ Scan de vulnerabilidades
+
+## 🔧 Troubleshooting
+
+### **Problemas Comuns**
+
+#### **1. Falha na Autenticação Azure**
+```bash
+# Verificar OIDC
+az account show
+
+# Verificar Key Vault
+az keyvault secret list --vault-name <vault-name>
+```
+
+#### **2. Container não inicia**
+```bash
+# Verificar logs
+docker logs auditoria-service
+
+# Verificar secrets
+docker exec auditoria-service env | grep -E "(DATABASE|REDIS|JWT)"
+```
+
+#### **3. Health Check falha**
+```bash
+# Verificar conectividade
+curl -v http://localhost:8085/actuator/health
+
+# Verificar dependências
+docker network ls | grep conexao
+```
+
+## 📚 Documentação Adicional
+
+- [Mapa de Uso de Segredos](docs/secrets-usage-map.md)
+- [Checklist de Pipeline](docs/pipeline-checklist.md)
+- [Configuração de Segredos](docs/SECRETS_CONFIGURATION.md)
+- [Validação de Integração](VALIDACAO_INTEGRACAO_COMPLETA.md)
+
+## 🔄 CI/CD Pipeline
+
+### **Workflow Triggers**
+- Push para qualquer branch
+- Pull Request
+- Manual dispatch
+
+### **Etapas**
+1. **Checkout** - actions/checkout@v4
+2. **Azure Login** - OIDC authentication
+3. **Key Vault** - Busca seletiva de 12 segredos
+4. **Build** - Maven compile + tests
+5. **Docker** - Build + security scan
+6. **Deploy** - Staging/production
+
+### **Validação**
+- ✅ Actionlint (workflow syntax)
+- ✅ Maven build (compile)
+- ⚠️ Tests (configuração DB pendente)
+- ✅ Trivy scan (vulnerabilidades)
+- ✅ Health check (deploy)
+
+---
+
+**Última atualização:** $(date '+%Y-%m-%d %H:%M:%S')  
+**Status:** ✅ **Auditoria Completa** - Conforme com todos os critérios de segurança
 
 ## 🎯 Características Principais
 
