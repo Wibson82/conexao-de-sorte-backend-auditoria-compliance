@@ -19,7 +19,7 @@
     <description>Microserviço consolidado de auditoria, compliance e privacidade LGPD com Event Sourcing e trilhas imutáveis</description>
 
     <properties>
-        <java.version>24</java.version>
+        <java.version>25</java.version>
         <project.build.sourceEncoding>UTF-8</project.build.sourceEncoding>
         
         <!-- Dependências para documentação -->
