@@ -197,7 +197,7 @@ docker network ls | grep conexao
 
 ---
 
-**Última atualização:** $(date '+%Y-%m-%d %H:%M:%S')  
+**Última atualização:** $(date '+%Y-%m-%d %H:%M:%S')
 **Status:** ✅ **Auditoria Completa** - Conforme com todos os critérios de segurança
 
 ## 🎯 Características Principais
@@ -455,7 +455,7 @@ mvn test -Dtest=**/*PerformanceTest
 ### Health Checks
 
 - **Event Store**: Conectividade PostgreSQL
-- **Kafka**: Produção + Consumo de eventos  
+- **Kafka**: Produção + Consumo de eventos
 - **Azure Key Vault**: Acesso às chaves
 - **Redis**: Cache disponível
 - **Cadeia de Integridade**: Validação contínua
@@ -480,14 +480,14 @@ spring:
     pool:
       initial-size: 30
       max-size: 150
-      
+
 kafka:
   producer:
     batch-size: 65536
     linger-ms: 5
   consumer:
     max-poll-records: 1000
-    
+
 axon:
   eventhandling:
     processors:
@@ -539,7 +539,7 @@ axon:
 
 ### Dados Pessoais (GDPR)
 - `ACESSO_DADOS_PESSOAIS`
-- `MODIFICACAO_DADOS_PESSOAIS` 
+- `MODIFICACAO_DADOS_PESSOAIS`
 - `EXPORTACAO_DADOS`
 - `SOLICITACAO_ESQUECIMENTO`
 - `ANONIMIZACAO_DADOS`

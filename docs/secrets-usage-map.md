@@ -16,7 +16,7 @@ Este documento mapeia **exatamente** quais segredos são necessários por cada j
 # Azure Key Vault - Lista Explícita (SEM curingas)
 secrets: |
   conexao-de-sorte-database-r2dbc-url
-  conexao-de-sorte-database-username  
+  conexao-de-sorte-database-username
   conexao-de-sorte-database-password
   conexao-de-sorte-redis-host
   conexao-de-sorte-redis-port
@@ -53,7 +53,7 @@ secrets: |
 ### **Removidos da Lista Original:**
 
 - ❌ `conexao-de-sorte-jwt-privateKey` - Não usado neste microserviço
-- ❌ `conexao-de-sorte-jwt-publicKey` - Não usado neste microserviço  
+- ❌ `conexao-de-sorte-jwt-publicKey` - Não usado neste microserviço
 - ❌ `conexao-de-sorte-jwt-key-id` - Não usado neste microserviço
 - ❌ `conexao-de-sorte-database-jdbc-url` - Usa apenas R2DBC
 - ❌ `conexao-de-sorte-database-url` - Duplicado/não usado
@@ -80,7 +80,7 @@ echo ::add-mask::"${{ steps.kv.outputs.conexao-de-sorte-jwt-verification-key }}"
 
 - **Total de segredos necessários:** 12
 - **Segredos de banco:** 3
-- **Segredos de Redis:** 4  
+- **Segredos de Redis:** 4
 - **Segredos JWT:** 5
 - **Segredos removidos da lista original:** 15+
 

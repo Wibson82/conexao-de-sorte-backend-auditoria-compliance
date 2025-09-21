@@ -40,40 +40,40 @@ services:
       - DB_NAME=conexao_audit
       - DB_USERNAME=${DATABASE_USERNAME}
       - DB_PASSWORD=${DATABASE_PASSWORD}
-      
+
       # Redis (usa infraestrutura-core)
       - REDIS_HOST=${REDIS_HOST}
       - REDIS_PORT=${REDIS_PORT}
       - REDIS_PASSWORD=${REDIS_PASSWORD}
       - REDIS_DATABASE=${REDIS_DATABASE}
-      
-      # Kafka (usa infraestrutura-core)  
+
+      # Kafka (usa infraestrutura-core)
       - KAFKA_BOOTSTRAP_SERVERS=${KAFKA_BOOTSTRAP_SERVERS:-conexao-kafka:9092}
       - KAFKA_GROUP_ID=auditoria-service
-      
+
       # JWT (external secrets)
       - JWT_JWKS_URI=${JWT_JWKS_URI}
       - JWT_ISSUER=${JWT_ISSUER}
       - JWT_SECRET=${JWT_SECRET}
       - JWT_SIGNING_KEY=${JWT_SIGNING_KEY}
       - JWT_VERIFICATION_KEY=${JWT_VERIFICATION_KEY}
-      
+
       # Features
       - FEATURE_AUDITORIA_MS=true
       - FEATURE_EVENT_STREAMING=true
       - FEATURE_CACHE_ENABLED=true
-      
+
       # Observabilidade
       - MANAGEMENT_ENDPOINTS_WEB_EXPOSURE_INCLUDE=health,info,prometheus,metrics
       - MANAGEMENT_METRICS_EXPORT_PROMETHEUS_ENABLED=true
       - MANAGEMENT_TRACING_SAMPLING_PROBABILITY=1.0
       - MANAGEMENT_ZIPKIN_TRACING_ENDPOINT=http://conexao-zipkin:9411/api/v2/spans
       - MANAGEMENT_JAEGER_TRACING_ENDPOINT=http://conexao-jaeger:14268/api/traces
-      
+
       # Sistema
       - SPRING_PROFILES_ACTIVE=docker
       - TZ=America/Sao_Paulo
-      
+
     healthcheck:
       test: ["CMD", "curl", "-f", "http://localhost:8085/actuator/health"]
       interval: 30s

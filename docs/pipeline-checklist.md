@@ -121,5 +121,5 @@
 
 ---
 
-**Data da Auditoria:** $(date '+%Y-%m-%d %H:%M:%S')  
+**Data da Auditoria:** $(date '+%Y-%m-%d %H:%M:%S')
 **Status:** ✅ **CONFORME** - Todos os critérios atendidos
