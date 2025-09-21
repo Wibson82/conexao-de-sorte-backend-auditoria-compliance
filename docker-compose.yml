@@ -24,15 +24,8 @@
 services:
   # === MICROSERVIÇO DE AUDITORIA ===
   auditoria-service:
-    build:
-      context: .
-      dockerfile: Dockerfile
-      target: release
     image: conexaodesorte/auditoria:latest
-    container_name: auditoria-service
     restart: unless-stopped
-    ports:
-      - "8085:8085"
     environment:
       # Database (infraestrutura centralizada)
       - DB_HOST=conexao-mysql
@@ -115,9 +108,7 @@ services:
 # === VOLUMES (apenas dados específicos) ===
 volumes:
   auditoria-logs:
-    driver: local
   auditoria-tmp:
-    driver: local
 
 # === NETWORKS ===
 networks:
