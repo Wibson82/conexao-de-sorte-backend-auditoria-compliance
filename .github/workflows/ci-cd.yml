@@ -1,4 +1,4 @@
-name: "📊 Auditoria Compliance – CI/CD Pipeline"
+name: "📊 Auditoria Compliance - CI/CD Pipeline"
 
 on:
   push:
