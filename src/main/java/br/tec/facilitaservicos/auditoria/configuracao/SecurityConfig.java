@@ -3,6 +3,7 @@ package br.tec.facilitaservicos.auditoria.configuracao;
 import java.util.Arrays;
 import java.util.Collection;
 import java.util.List;
+import java.nio.charset.StandardCharsets;
 
 import jakarta.annotation.PostConstruct;
 import org.springframework.beans.factory.annotation.Value;
@@ -22,6 +23,9 @@ import org.springframework.security.oauth2.jwt.NimbusReactiveJwtDecoder;
 import org.springframework.security.oauth2.server.resource.authentication.JwtAuthenticationConverter;
 import org.springframework.security.oauth2.server.resource.authentication.ReactiveJwtAuthenticationConverterAdapter;
 import org.springframework.security.web.server.SecurityWebFilterChain;
+import org.springframework.security.web.server.context.NoOpServerSecurityContextRepository;
+import org.springframework.security.web.server.context.ServerSecurityContextRepository;
+import org.springframework.security.web.server.util.matcher.ServerWebExchangeMatchers;
 import org.springframework.web.cors.CorsConfiguration;
 import org.springframework.web.cors.reactive.CorsConfigurationSource;
 import org.springframework.web.cors.reactive.UrlBasedCorsConfigurationSource;
@@ -188,7 +192,7 @@ public class SecurityConfig {
                     
                     String body = TEMPLATE_ERRO_AUTENTICACAO.formatted(java.time.LocalDateTime.now());
                     
-                    var buffer = response.bufferFactory().wrap(body.getBytes());
+                    var buffer = response.bufferFactory().wrap(body.getBytes(StandardCharsets.UTF_8));
                     return response.writeWith(reactor.core.publisher.Mono.just(buffer));
                 })
                 .accessDeniedHandler((exchange, _) -> {
@@ -198,7 +202,7 @@ public class SecurityConfig {
                     
                     String body = TEMPLATE_ERRO_ACESSO.formatted(java.time.LocalDateTime.now());
                     
-                    var buffer = response.bufferFactory().wrap(body.getBytes());
+                    var buffer = response.bufferFactory().wrap(body.getBytes(StandardCharsets.UTF_8));
                     return response.writeWith(reactor.core.publisher.Mono.just(buffer));
                 })
             )

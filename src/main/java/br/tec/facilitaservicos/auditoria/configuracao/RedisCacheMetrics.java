@@ -9,6 +9,7 @@ import org.springframework.data.redis.connection.ReturnType;
 import org.springframework.data.redis.core.RedisCallback;
 import org.springframework.data.redis.core.RedisTemplate;
 
+import java.nio.charset.StandardCharsets;
 import java.util.concurrent.atomic.AtomicLong;
 
 /**
@@ -135,15 +136,15 @@ public class RedisCacheMetrics {
         try {
             // Contagem de chaves específicas de auditoria
             Long auditEventKeys = redisTemplate.execute((RedisCallback<Long>) connection -> 
-                connection.eval("return #redis.call('keys', ARGV[1])".getBytes(), ReturnType.INTEGER, 0, (applicationName + ":audit:eventos:*").getBytes())
+                connection.eval("return #redis.call('keys', ARGV[1])".getBytes(StandardCharsets.UTF_8), ReturnType.INTEGER, 0, (applicationName + ":audit:eventos:*").getBytes(StandardCharsets.UTF_8))
             );
             
             Long reportKeys = redisTemplate.execute((RedisCallback<Long>) connection -> 
-                connection.eval("return #redis.call('keys', ARGV[1])".getBytes(), ReturnType.INTEGER, 0, (applicationName + ":audit:relatorios:*").getBytes())
+                connection.eval("return #redis.call('keys', ARGV[1])".getBytes(StandardCharsets.UTF_8), ReturnType.INTEGER, 0, (applicationName + ":audit:relatorios:*").getBytes(StandardCharsets.UTF_8))
             );
             
             Long sessionKeys = redisTemplate.execute((RedisCallback<Long>) connection -> 
-                connection.eval("return #redis.call('keys', ARGV[1])".getBytes(), ReturnType.INTEGER, 0, (applicationName + ":audit:sessoes-auditoria:*").getBytes())
+                connection.eval("return #redis.call('keys', ARGV[1])".getBytes(StandardCharsets.UTF_8), ReturnType.INTEGER, 0, (applicationName + ":audit:sessoes-auditoria:*").getBytes(StandardCharsets.UTF_8))
             );
             
             if (auditEventKeys != null) {

@@ -21,23 +21,36 @@
     <properties>
         <java.version>25</java.version>
         <project.build.sourceEncoding>UTF-8</project.build.sourceEncoding>
-        
+
         <!-- Dependências para documentação -->
         <springdoc.version>2.8.11</springdoc.version>
         <logstash.version>8.1</logstash.version>
-        
+
         <!-- Testcontainers -->
         <testcontainers.version>1.21.3</testcontainers.version>
-        
+
         <!-- Event Sourcing & CQRS -->
         <axon.version>4.10.2</axon.version>
-        
+
         <!-- Criptografia -->
         <bouncycastle.version>1.80</bouncycastle.version>
-        
+
         <!-- Mockito -->
-        <mockito.version>5.18.0</mockito.version>
+        <mockito.version>5.20.0</mockito.version>
         <spring-cloud.version>2025.0.0</spring-cloud.version>
+
+        <!-- Azure SDK -->
+        <azure-sdk-bom.version>1.2.37</azure-sdk-bom.version>
+        <spring-cloud-azure.version>5.23.0</spring-cloud-azure.version>
+
+        <!-- Dependências adicionais -->
+        <nimbus-jose-jwt.version>10.0.1</nimbus-jose-jwt.version>
+        <checker-qual.version>3.49.3</checker-qual.version>
+        <error-prone-annotations.version>2.40.0</error-prone-annotations.version>
+        <msal4j.version>1.21.0</msal4j.version>
+        <jacoco-plugin.version>0.8.12</jacoco-plugin.version>
+        <flyway-plugin.version>11.2.0</flyway-plugin.version>
+        <findsecbugs-plugin.version>1.13.0</findsecbugs-plugin.version>
     </properties>
 
     <dependencyManagement>
@@ -70,14 +83,14 @@
             <dependency>
                 <groupId>com.azure</groupId>
                 <artifactId>azure-sdk-bom</artifactId>
-                <version>1.2.37</version>
+                <version>${azure-sdk-bom.version}</version>
                 <type>pom</type>
                 <scope>import</scope>
             </dependency>
             <dependency>
                 <groupId>com.azure.spring</groupId>
                 <artifactId>spring-cloud-azure-dependencies</artifactId>
-                <version>5.23.0</version>
+                <version>${spring-cloud-azure.version}</version>
                 <type>pom</type>
                 <scope>import</scope>
             </dependency>
@@ -85,28 +98,41 @@
             <dependency>
                 <groupId>com.nimbusds</groupId>
                 <artifactId>nimbus-jose-jwt</artifactId>
-                <version>10.0.1</version>
+                <version>${nimbus-jose-jwt.version}</version>
             </dependency>
             <!-- Correção de conflitos de dependência -->
             <dependency>
                 <groupId>org.checkerframework</groupId>
                 <artifactId>checker-qual</artifactId>
-                <version>3.49.3</version>
+                <version>${checker-qual.version}</version>
             </dependency>
             <dependency>
                 <groupId>org.bouncycastle</groupId>
                 <artifactId>bcprov-jdk18on</artifactId>
-                <version>1.80</version>
+                <version>${bouncycastle.version}</version>
+            </dependency>
+            <dependency>
+                <groupId>org.bouncycastle</groupId>
+                <artifactId>bcpkix-jdk18on</artifactId>
+                <version>${bouncycastle.version}</version>
             </dependency>
             <dependency>
                 <groupId>com.google.errorprone</groupId>
                 <artifactId>error_prone_annotations</artifactId>
-                <version>2.40.0</version>
+                <version>${error-prone-annotations.version}</version>
             </dependency>
             <dependency>
                 <groupId>com.microsoft.azure</groupId>
                 <artifactId>msal4j</artifactId>
-                <version>1.21.0</version>
+                <version>${msal4j.version}</version>
+            </dependency>
+            <!-- Axon Framework BOM -->
+            <dependency>
+                <groupId>org.axonframework</groupId>
+                <artifactId>axon-bom</artifactId>
+                <version>${axon.version}</version>
+                <type>pom</type>
+                <scope>import</scope>
             </dependency>
         </dependencies>
     </dependencyManagement>
@@ -165,7 +191,6 @@
         <dependency>
             <groupId>org.axonframework</groupId>
             <artifactId>axon-spring-boot-starter</artifactId>
-            <version>${axon.version}</version>
         </dependency>
 
         <!-- Kafka para Event Streaming -->
@@ -187,13 +212,7 @@
         <!-- Criptografia para integridade -->
         <dependency>
             <groupId>org.bouncycastle</groupId>
-            <artifactId>bcprov-jdk18on</artifactId>
-            <version>${bouncycastle.version}</version>
-        </dependency>
-        <dependency>
-            <groupId>org.bouncycastle</groupId>
             <artifactId>bcpkix-jdk18on</artifactId>
-            <version>${bouncycastle.version}</version>
         </dependency>
 
         <!-- Resiliência -->
@@ -364,11 +383,11 @@
             <plugin>
                 <groupId>org.apache.maven.plugins</groupId>
                 <artifactId>maven-compiler-plugin</artifactId>
-                <version>3.13.0</version>
+                <version>3.14.1</version>
                 <configuration>
                     <release>${java.version}</release>
                     <jdkToolchain>
-                        <version>[24,)</version>
+                        <version>[25,]</version>
                     </jdkToolchain>
                     <compilerArgs>
                         <arg>-Xlint:deprecation</arg>
@@ -382,7 +401,7 @@
             <plugin>
                 <groupId>org.apache.maven.plugins</groupId>
                 <artifactId>maven-surefire-plugin</artifactId>
-                <version>3.5.3</version>
+                <version>3.5.4</version>
                 <configuration>
                     <systemPropertyVariables>
                         <spring.profiles.active>test</spring.profiles.active>
@@ -400,6 +419,7 @@
             <plugin>
                 <groupId>org.flywaydb</groupId>
                 <artifactId>flyway-maven-plugin</artifactId>
+                <version>${flyway-plugin.version}</version>
                 <configuration>
                     <driver>com.mysql.cj.jdbc.Driver</driver>
                     <locations>
@@ -409,18 +429,18 @@
                     <connectRetriesInterval>10</connectRetriesInterval>
                 </configuration>
             </plugin>
-            
+
             <!-- SpotBugs Plugin - Análise estática de código -->
             <plugin>
                 <groupId>com.github.spotbugs</groupId>
                 <artifactId>spotbugs-maven-plugin</artifactId>
-                <version>4.9.4.0</version>
+                <version>4.9.6.0</version>
                 <dependencies>
-                    <!-- Override SpotBugs version for better Java 24 support -->
+                    <!-- Override SpotBugs version for better Java 25 support -->
                     <dependency>
                         <groupId>com.github.spotbugs</groupId>
                         <artifactId>spotbugs</artifactId>
-                        <version>4.9.4</version>
+                        <version>4.9.6</version>
                     </dependency>
                 </dependencies>
                 <configuration>
@@ -431,7 +451,7 @@
                         <plugin>
                             <groupId>com.h3xstream.findsecbugs</groupId>
                             <artifactId>findsecbugs-plugin</artifactId>
-                            <version>1.13.0</version>
+                            <version>${findsecbugs-plugin.version}</version>
                         </plugin>
                     </plugins>
                 </configuration>
@@ -448,11 +468,11 @@
             <plugin>
                 <groupId>org.apache.maven.plugins</groupId>
                 <artifactId>maven-enforcer-plugin</artifactId>
-                <version>3.5.0</version>
+                <version>3.6.1</version>
                 <configuration>
                     <rules>
                         <requireJavaVersion>
-                            <version>[24,)</version>
+                            <version>[25,)</version>
                         </requireJavaVersion>
                         <requireMavenVersion>
                             <version>[3.9.0,)</version>
@@ -486,7 +506,46 @@
             <id>coverage-gate</id>
             <build>
                 <plugins>
-                    
+                    <!-- Plugin JaCoCo para análise de cobertura de código -->
+                    <plugin>
+                        <groupId>org.jacoco</groupId>
+                        <artifactId>jacoco-maven-plugin</artifactId>
+                        <version>${jacoco-plugin.version}</version>
+                        <executions>
+                            <execution>
+                                <goals>
+                                    <goal>prepare-agent</goal>
+                                </goals>
+                            </execution>
+                            <execution>
+                                <id>report</id>
+                                <phase>test</phase>
+                                <goals>
+                                    <goal>report</goal>
+                                </goals>
+                            </execution>
+                            <execution>
+                                <id>jacoco-check</id>
+                                <goals>
+                                    <goal>check</goal>
+                                </goals>
+                                <configuration>
+                                    <rules>
+                                        <rule>
+                                            <element>PACKAGE</element>
+                                            <limits>
+                                                <limit>
+                                                    <counter>LINE</counter>
+                                                    <value>COVEREDRATIO</value>
+                                                    <minimum>0.80</minimum>
+                                                </limit>
+                                            </limits>
+                                        </rule>
+                                    </rules>
+                                </configuration>
+                            </execution>
+                        </executions>
+                    </plugin>
                 </plugins>
             </build>
         </profile>
