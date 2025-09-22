@@ -419,7 +419,6 @@
             <plugin>
                 <groupId>org.flywaydb</groupId>
                 <artifactId>flyway-maven-plugin</artifactId>
-                <version>${flyway-plugin.version}</version>
                 <configuration>
                     <driver>com.mysql.cj.jdbc.Driver</driver>
                     <locations>
