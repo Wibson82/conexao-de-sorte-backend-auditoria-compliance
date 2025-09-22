@@ -33,10 +33,10 @@ spring:
 
   # R2DBC Configuration (Spring Boot 3.5.5 compatible)
   r2dbc:
-    # Preferencialmente usa -database-r2dbc-url; mantém compat com -database-url
-    url: ${conexao-de-sorte-database-r2dbc-url:${conexao-de-sorte-database-url:r2dbc:mysql://mysql-proxy:6033/conexao_audit?useSSL=true&allowPublicKeyRetrieval=false}}
-    username: ${conexao-de-sorte-database-username:}
-    password: ${conexao-de-sorte-database-password:senha_teste}
+    # Secret base: r2dbc:mysql://conexao-mysql:3306 + parâmetros específicos
+    url: ${conexao-de-sorte-database-r2dbc-url}/conexao_audit?useSSL=true&allowPublicKeyRetrieval=false
+    username: ${conexao-de-sorte-database-username}
+    password: ${conexao-de-sorte-database-password}
     pool:
       enabled: true
       initial-size: 1
@@ -66,10 +66,10 @@ spring:
   # Flyway for database migrations
   flyway:
     enabled: true
-    # Padroniza uso de -database-jdbc-url, mantendo compatibilidade com -database-flyway-url
-    url: ${conexao-de-sorte-database-jdbc-url:${conexao-de-sorte-database-flyway-url:jdbc:mysql://mysql-proxy:6033/conexao_audit?useSSL=true&allowPublicKeyRetrieval=false}}
-    user: ${conexao-de-sorte-database-username:}
-    password: ${conexao-de-sorte-redis-password:senha_teste}
+    # Secret JDBC base: jdbc:mysql://conexao-mysql:3306 + parâmetros específicos
+    url: ${conexao-de-sorte-database-jdbc-url}/conexao_audit?useSSL=true&allowPublicKeyRetrieval=false
+    user: ${conexao-de-sorte-database-username}
+    password: ${conexao-de-sorte-database-password}
     locations: classpath:db/migration
     baseline-on-migrate: true
     validate-on-migrate: false
