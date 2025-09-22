@@ -66,9 +66,10 @@ services:
       # Sistema
       - SPRING_PROFILES_ACTIVE=docker
       - TZ=America/Sao_Paulo
+      - SERVER_PORT=8093
 
     healthcheck:
-      test: ["CMD", "curl", "-f", "http://localhost:8085/actuator/health"]
+      test: ["CMD", "curl", "-f", "http://localhost:8093/actuator/health"]
       interval: 30s
       timeout: 10s
       retries: 3
@@ -96,6 +97,36 @@ services:
         delay: 10s
         failure_action: pause
         monitor: 60s
+
+    # ==========================================================================
+    # 🏷️ TRAEFIK LABELS - AUDITORIA-COMPLIANCE SERVICE
+    # ==========================================================================
+    labels:
+      # Habilitar Traefik para este serviço
+      - "traefik.enable=true"
+      - "traefik.docker.network=conexao-network-swarm"
+
+      # Configuração do serviço Auditoria-Compliance
+      - "traefik.http.services.auditoria-compliance-service.loadbalancer.server.port=8093"
+      - "traefik.http.services.auditoria-compliance-service.loadbalancer.healthcheck.path=/actuator/health"
+      - "traefik.http.services.auditoria-compliance-service.loadbalancer.healthcheck.interval=30s"
+
+      # Health check individual do Auditoria-Compliance
+      - "traefik.http.routers.auditoria-compliance-health.rule=Host(`traefik.conexaodesorte.com.br`) && PathPrefix(`/health/service/auditoria-compliance`)"
+      - "traefik.http.routers.auditoria-compliance-health.entrypoints=websecure"
+      - "traefik.http.routers.auditoria-compliance-health.tls.certresolver=letsencrypt"
+      - "traefik.http.routers.auditoria-compliance-health.service=auditoria-compliance-service"
+      - "traefik.http.routers.auditoria-compliance-health.middlewares=auditoria-compliance-health-rewrite"
+
+      # Middleware para reescrever path do health check
+      - "traefik.http.middlewares.auditoria-compliance-health-rewrite.replacepath.path=/actuator/health"
+
+      # Metadata do serviço
+      - "org.opencontainers.image.title=Conexão de Sorte - Auditoria & Compliance"
+      - "org.opencontainers.image.description=Microserviço de auditoria, logs e compliance"
+      - "org.opencontainers.image.version=1.0.0"
+      - "microservice.type=audit"
+      - "microservice.category=compliance"
 
   # === OBSERVAÇÃO: MySQL removido - usa infraestrutura centralizada ===
   # MySQL agora fornecido pelo conexao-de-sorte-infraestrutura-core
