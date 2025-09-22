@@ -110,4 +110,4 @@ preflight_db() {
 preflight_db || true
 
 log "🚀 Iniciando aplicação Java"
-exec dumb-init -- java -jar /app/app.jar
+exec dumb-init -- java -jar /app/app.jar "$@"

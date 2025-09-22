@@ -4,7 +4,7 @@
 #
 # Dockerfile otimizado para microserviço reativo com:
 # - Multi-stage build para reduzir tamanho da imagem
-# - Java 24 com JVM otimizada para containers
+# - Java 25 com Amazon Corretto (otimizado pela AWS para produção)
 # - Usuário não-root para segurança
 # - Health check nativo
 # - Otimizações de performance
@@ -19,12 +19,29 @@
 # ============================================================================
 
 # === ESTÁGIO 1: BUILD ===
-FROM maven:3.9.11-eclipse-temurin-24-alpine AS builder
+FROM amazoncorretto:25-alpine3.22 AS builder
+
+# Instalar Maven
+ENV MAVEN_VERSION=3.9.11
+ENV MAVEN_HOME=/opt/maven
+ENV PATH=$MAVEN_HOME/bin:$PATH
+
+RUN apk add --no-cache wget bash && \
+    wget -q https://archive.apache.org/dist/maven/maven-3/$MAVEN_VERSION/binaries/apache-maven-$MAVEN_VERSION-bin.tar.gz && \
+    tar -xzf apache-maven-$MAVEN_VERSION-bin.tar.gz -C /opt && \
+    mv /opt/apache-maven-$MAVEN_VERSION $MAVEN_HOME && \
+    rm apache-maven-$MAVEN_VERSION-bin.tar.gz
 
 # Metadados da imagem
 LABEL maintainer="Conexão de Sorte <tech@conexaodesorte.com>"
 LABEL description="Microserviço de Auditoria e Compliance - Build Stage"
 LABEL version="1.0.0"
+
+# Instalar dependências necessárias
+RUN apk add --no-cache \
+    curl \
+    git \
+    && rm -rf /var/cache/apk/*
 
 # Variáveis de build
 ARG BUILD_DATE
@@ -60,7 +77,7 @@ RUN --mount=type=cache,target=/root/.m2 \
     -Dmaven.wagon.rto=300000
 
 # === ESTÁGIO 2: RUNTIME ===
-FROM eclipse-temurin:24-jre-alpine AS runtime
+FROM amazoncorretto:25-alpine3.22 AS runtime
 
 # Instalar dependências do sistema
 RUN apk add --no-cache \
@@ -81,21 +98,21 @@ RUN addgroup -g 1001 -S appgroup && \
 WORKDIR /app
 
 # Copiar JAR da aplicação do estágio de build
-COPY --from=builder --chown=appuser:appgroup /build/target/*.jar app.jar
+COPY --from=builder /build/target/*.jar app.jar
+
+# Copiar script de entrypoint
+COPY docker/docker-entrypoint.sh /app/docker-entrypoint.sh
+RUN chmod +x /app/docker-entrypoint.sh
 
 # Preparar diretório de logs gravável pelo app
-RUN mkdir -p /app/logs && \
-    chown -R appuser:appgroup /app/logs
-
-# Expor porta da aplicação
-
+RUN mkdir -p /app/logs
 
 # Health check nativo
 HEALTHCHECK --interval=30s --timeout=10s --start-period=40s --retries=3 \
   CMD curl -f http://localhost:8085/actuator/health || exit 1
 
-# Script de entrada com pré-checagem de conexão ao banco (no-op se não houver secrets)
-ENTRYPOINT ["dumb-init", "--", "java", "-jar", "/app/app.jar"]
+# Mudar propriedades para o usuário não-root
+RUN chown -R appuser:appgroup /app
 
 # Mudar para usuário não-root
 USER appuser:appgroup
