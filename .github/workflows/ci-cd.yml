@@ -57,7 +57,7 @@ jobs:
         id: kv
         uses: azure/get-keyvault-secrets@v1
         with:
-          keyvault: ${{ secrets.AZURE_KEYVAULT_NAME }}
+          keyvault: ${{ secrets.AZURE_KEYVAULT_ENDPOINT }}
           secrets: |
             conexao-de-sorte-database-r2dbc-url
             conexao-de-sorte-database-username
