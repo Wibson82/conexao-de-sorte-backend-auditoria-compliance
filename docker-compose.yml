@@ -1,125 +1,54 @@
-# ============================================================================
-# 🐳 DOCKER COMPOSE - MICROSERVIÇO AUDITORIA & COMPLIANCE
-# ============================================================================
-#
-# Microserviço refatorado para usar infraestrutura compartilhada:
-# ✅ Conecta ao Redis do infraestrutura-core (conexao-redis)
-# ✅ Conecta ao Kafka do infraestrutura-core (conexao-kafka)
-# ✅ Usa network compartilhada (conexao-network-swarm)
-# ✅ Segredos via external secrets (sem hardcode)
-# ✅ Apenas MySQL próprio (dados específicos de auditoria)
-#
-# Execução:
-# docker-compose up -d          # Subir apenas o microserviço
-# docker-compose logs -f        # Ver logs em tempo real
-# docker-compose down           # Parar apenas o microserviço
-#
-# ⚠️ IMPORTANTE: Execute primeiro o infraestrutura-core
-#
-# @author Sistema de Migração Refatorado
-# @version 2.0 - Refatorado para infraestrutura compartilhada
-# @since 2024
-# ============================================================================
-
 services:
-  # === MICROSERVIÇO DE AUDITORIA ===
-  auditoria-service:
-    image: conexaodesorte/auditoria:latest
-    restart: unless-stopped
+  auditoria-compliance:
+    image: ${AUDITORIA_COMPLIANCE_IMAGE:-ghcr.io/wibson82/conexao-de-sorte-backend-auditoria-compliance:latest}
     environment:
-      # Database (infraestrutura centralizada)
-      - DB_HOST=conexao-mysql
-      - DB_PORT=3306
-      - DB_NAME=conexao_audit
-      - DB_USERNAME=${DATABASE_USERNAME}
-      - DB_PASSWORD=${DATABASE_PASSWORD}
-
-      # Redis (usa infraestrutura-core)
-      - REDIS_HOST=${REDIS_HOST}
-      - REDIS_PORT=${REDIS_PORT}
-      - REDIS_PASSWORD=${REDIS_PASSWORD}
-      - REDIS_DATABASE=${REDIS_DATABASE}
-
-      # Kafka (usa infraestrutura-core)
-      - KAFKA_BOOTSTRAP_SERVERS=${KAFKA_BOOTSTRAP_SERVERS:-conexao-kafka:9092}
-      - KAFKA_GROUP_ID=auditoria-service
-
-      # JWT (external secrets)
-      - JWT_JWKS_URI=${JWT_JWKS_URI}
-      - JWT_ISSUER=${JWT_ISSUER}
-      - JWT_SECRET=${JWT_SECRET}
-      - JWT_SIGNING_KEY=${JWT_SIGNING_KEY}
-      - JWT_VERIFICATION_KEY=${JWT_VERIFICATION_KEY}
-
-      # Features
-      - FEATURE_AUDITORIA_MS=true
-      - FEATURE_EVENT_STREAMING=true
-      - FEATURE_CACHE_ENABLED=true
-
-      # Observabilidade
-      - MANAGEMENT_ENDPOINTS_WEB_EXPOSURE_INCLUDE=health,info,prometheus,metrics
-      - MANAGEMENT_METRICS_EXPORT_PROMETHEUS_ENABLED=true
-      - MANAGEMENT_TRACING_SAMPLING_PROBABILITY=1.0
-      - MANAGEMENT_ZIPKIN_TRACING_ENDPOINT=http://conexao-zipkin:9411/api/v2/spans
-      - MANAGEMENT_JAEGER_TRACING_ENDPOINT=http://conexao-jaeger:14268/api/traces
-
-      # Sistema
-      - SPRING_PROFILES_ACTIVE=docker
-      - TZ=America/Sao_Paulo
-      - SERVER_PORT=8093
-
+      SPRING_PROFILES_ACTIVE: "production"
+      AUDITORIA_LOG_LEVEL: "INFO"
+      LOGGING_LEVEL_ROOT: "INFO"
+    secrets:
+      - conexao-de-sorte-database-r2dbc-url
+      - conexao-de-sorte-database-username
+      - conexao-de-sorte-database-password
+      - conexao-de-sorte-redis-host
+      - conexao-de-sorte-redis-port
+      - conexao-de-sorte-redis-password
+      - conexao-de-sorte-redis-database
+      - conexao-de-sorte-jwt-issuer
+      - conexao-de-sorte-jwt-jwks-uri
+      - conexao-de-sorte-server-port
+    networks:
+      - conexao-network-swarm
+    volumes:
+      - auditoria-logs:/app/logs
     healthcheck:
       test: ["CMD", "curl", "-f", "http://localhost:8093/actuator/health"]
       interval: 30s
       timeout: 10s
-      retries: 3
-      start_period: 40s
-    networks:
-      - conexao-network-swarm  # ✅ Conecta à rede compartilhada
-    volumes:
-      - auditoria-logs:/app/logs
-      - auditoria-tmp:/tmp
+      retries: 5
+      start_period: 60s
     deploy:
+      replicas: 1
+      restart_policy:
+        condition: on-failure
       resources:
         limits:
-          memory: 512M
-          cpus: '0.5'
+          memory: 1G
         reservations:
-          memory: 256M
-          cpus: '0.25'
-      update_config:
-        parallelism: 1
-        delay: 10s
-        failure_action: rollback
-        monitor: 60s
-      rollback_config:
-        parallelism: 1
-        delay: 10s
-        failure_action: pause
-        monitor: 60s
-
+          memory: 512M
     # ==========================================================================
-    # 🏷️ TRAEFIK LABELS - AUDITORIA-COMPLIANCE SERVICE
+    # 🏷️ LABELS PARA INTEGRAÇÃO COM GATEWAY
     # ==========================================================================
     labels:
-      # Habilitar Traefik para este serviço
-      - "traefik.enable=true"
-      - "traefik.docker.network=conexao-network-swarm"
+      # Habilitar descoberta pelo Gateway
+      - "traefik.enable=false"
+      - "gateway.enable=true"
+      - "gateway.service.name=conexao-auditoria"
+      - "gateway.service.port=8093"
+      - "gateway.service.path=/rest/auditoria"
+      - "gateway.health.path=/actuator/health"
 
-      # Configuração do serviço Auditoria-Compliance
-      - "traefik.http.services.auditoria-compliance-service.loadbalancer.server.port=8093"
-      - "traefik.http.services.auditoria-compliance-service.loadbalancer.healthcheck.path=/actuator/health"
-      - "traefik.http.services.auditoria-compliance-service.loadbalancer.healthcheck.interval=30s"
-
-      # Health check individual do Auditoria-Compliance
-      - "traefik.http.routers.auditoria-compliance-health.rule=Host(`traefik.conexaodesorte.com.br`) && PathPrefix(`/health/service/auditoria-compliance`)"
-      - "traefik.http.routers.auditoria-compliance-health.entrypoints=websecure"
-      - "traefik.http.routers.auditoria-compliance-health.tls.certresolver=letsencrypt"
-      - "traefik.http.routers.auditoria-compliance-health.service=auditoria-compliance-service"
-      - "traefik.http.routers.auditoria-compliance-health.middlewares=auditoria-compliance-health-rewrite"
-
-      # Middleware para reescrever path do health check
-      - "traefik.http.middlewares.auditoria-compliance-health-rewrite.replacepath.path=/actuator/health"
+      # Network para comunicação interna
+      - "com.docker.network.name=conexao-network-swarm"
 
       # Metadata do serviço
       - "org.opencontainers.image.title=Conexão de Sorte - Auditoria & Compliance"
@@ -128,22 +57,32 @@ services:
       - "microservice.type=audit"
       - "microservice.category=compliance"
 
-  # === OBSERVAÇÃO: MySQL removido - usa infraestrutura centralizada ===
-  # MySQL agora fornecido pelo conexao-de-sorte-infraestrutura-core
-  # Database: conexao_audit no servidor conexao-mysql
-
-  # === OBSERVAÇÃO: Observabilidade removida - usa backend-observabilidade ===
-  # Prometheus e Grafana agora fornecidos pelo conexao-de-sorte-backend-observabilidade
-  # Métricas centralizadas em uma única stack de observabilidade
-
-# === VOLUMES (apenas dados específicos) ===
 volumes:
   auditoria-logs:
-  auditoria-tmp:
 
-# === NETWORKS ===
 networks:
-  # Rede externa compartilhada (criada pelo infraestrutura-core)
   conexao-network-swarm:
     name: conexao-network-swarm
+    external: true
+
+secrets:
+  conexao-de-sorte-database-r2dbc-url:
+    external: true
+  conexao-de-sorte-database-username:
+    external: true
+  conexao-de-sorte-database-password:
+    external: true
+  conexao-de-sorte-redis-host:
+    external: true
+  conexao-de-sorte-redis-port:
+    external: true
+  conexao-de-sorte-redis-password:
+    external: true
+  conexao-de-sorte-redis-database:
+    external: true
+  conexao-de-sorte-jwt-issuer:
+    external: true
+  conexao-de-sorte-jwt-jwks-uri:
+    external: true
+  conexao-de-sorte-server-port:
     external: true
