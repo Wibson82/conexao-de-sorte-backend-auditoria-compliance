@@ -137,7 +137,7 @@ jobs:
           docker compose -f docker-compose.yml up -d --force-recreate
 
           # Health check
-          timeout 180 bash -c 'until curl -f http://localhost:8080/actuator/health; do sleep 5; done'
+          timeout 180 bash -c 'until curl -f http://localhost:8093/actuator/health; do sleep 5; done'
 
           # Validate through Traefik health monitor
           health_monitor_url="https://traefik.conexaodesorte.com.br/health/service/auditoria"
