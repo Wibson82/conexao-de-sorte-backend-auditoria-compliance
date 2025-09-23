@@ -84,6 +84,8 @@ RUN apk add --no-cache \
     tzdata \
     curl \
     dumb-init \
+    mysql-client \
+    netcat-openbsd \
     && rm -rf /var/cache/apk/*
 
 # Configurar timezone
@@ -100,9 +102,29 @@ WORKDIR /app
 # Copiar JAR da aplicação do estágio de build
 COPY --from=builder /build/target/*.jar app.jar
 
-# Copiar script de entrypoint
-COPY docker/docker-entrypoint.sh /app/docker-entrypoint.sh
-RUN chmod +x /app/docker-entrypoint.sh
+# Copiar script de inicialização do database
+COPY --chown=appuser:appgroup scripts/init-database.sh /app/init-database.sh
+RUN chmod +x /app/init-database.sh
+
+# Script de entrada que executa inicialização do DB e depois a aplicação
+RUN printf '%s\n' '#!/bin/sh' \
+    'set -e' \
+    'echo "🚀 Iniciando container auditoria-compliance..."' \
+    '' \
+    '# Executar inicialização do database' \
+    'if [ -f /app/init-database.sh ]; then' \
+    '    echo "🗄️ Executando inicialização do database..."' \
+    '    /app/init-database.sh' \
+    'else' \
+    '    echo "⚠️ Script de inicialização não encontrado, prosseguindo..."' \
+    'fi' \
+    '' \
+    '# Iniciar aplicação Java' \
+    'echo "☕ Iniciando aplicação Java..."' \
+    'exec dumb-init -- java -jar /app/app.jar' \
+    > /app/entrypoint.sh && \
+    chmod +x /app/entrypoint.sh && \
+    chown appuser:appgroup /app/entrypoint.sh
 
 # Preparar diretório de logs gravável pelo app
 RUN mkdir -p /app/logs
@@ -128,8 +150,7 @@ LABEL org.opencontainers.image.licenses="MIT"
 LABEL org.opencontainers.image.url="https://conexaodesorte.com"
 LABEL org.opencontainers.image.source="https://github.com/conexaodesorte/auditoria-compliance"
 
-# Comando de inicialização com pré-checagem de DB (no-op se sem secrets)
-ENTRYPOINT ["/app/docker-entrypoint.sh"]
+ENTRYPOINT ["/app/entrypoint.sh"]
 
 # === ESTÁGIO 3: DEBUG (Opcional) ===
 FROM runtime AS debug
