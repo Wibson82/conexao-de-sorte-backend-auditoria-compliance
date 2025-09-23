@@ -75,7 +75,7 @@ spring:
     validate-on-migrate: false
 
 server:
-  port: ${conexao-de-sorte-server-port:8085}
+  port: ${SERVER_PORT:8085}
   shutdown: graceful
   
   # SSL/TLS Configuration
