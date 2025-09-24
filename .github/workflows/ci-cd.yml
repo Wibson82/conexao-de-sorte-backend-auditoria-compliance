@@ -157,6 +157,31 @@ jobs:
             fi
           done
 
+      - name: 🔐 Create Azure Docker Secrets
+        run: |
+          echo "Creating Azure Docker secrets..."
+
+          # Função para criar Docker Secret apenas se não existir
+          create_docker_secret_if_not_exists() {
+            local secret_name="$1"
+            local secret_value="$2"
+
+            if docker secret ls --format "{{.Name}}" | grep -q "^${secret_name}$"; then
+              echo "ℹ️ Docker secret ${secret_name} já existe - reutilizando"
+            else
+              printf "$secret_value" | docker secret create "$secret_name" -
+              echo "✅ Docker secret ${secret_name} criado"
+            fi
+          }
+
+          # Criar Docker Secrets do Azure
+          create_docker_secret_if_not_exists "AZURE_KEYVAULT_ENDPOINT" "https://kv-conexao-de-sorte.vault.azure.net/"
+          create_docker_secret_if_not_exists "AZURE_CLIENT_ID" "0d27da5e-e9dc-41e5-8e85-ccd03fc6dad7"
+          create_docker_secret_if_not_exists "AZURE_TENANT_ID" "be925eb0-6ff2-440d-9942-bb8d0998df03"
+          create_docker_secret_if_not_exists "AZURE_SUBSCRIPTION_ID" "69f8c380-b007-4d80-b929-a5a80b458aec"
+
+          echo "Azure Docker secrets process completed."
+
       - name: 🔐 Create Docker Secrets
         if: ${{ env.CONEXAO_DE_SORTE_DATABASE_PASSWORD != '' && env.CONEXAO_DE_SORTE_REDIS_PASSWORD != '' && env.CONEXAO_DE_SORTE_JWT_ISSUER != '' }}
         run: |
