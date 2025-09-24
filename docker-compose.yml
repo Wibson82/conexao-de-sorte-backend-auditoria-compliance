@@ -12,6 +12,11 @@ services:
       DATABASE_USERNAME: "conexao"
       # Secrets via Docker Secrets
       DATABASE_PASSWORD_FILE: "/run/secrets/DATABASE_PASSWORD"
+      # Azure Key Vault configuration
+      AZURE_KEYVAULT_ENDPOINT_FILE: "/run/secrets/AZURE_KEYVAULT_ENDPOINT"
+      AZURE_CLIENT_ID_FILE: "/run/secrets/AZURE_CLIENT_ID"
+      AZURE_TENANT_ID_FILE: "/run/secrets/AZURE_TENANT_ID"
+      AZURE_SUBSCRIPTION_ID_FILE: "/run/secrets/AZURE_SUBSCRIPTION_ID"
     secrets:
       - conexao-de-sorte-database-r2dbc-url
       - conexao-de-sorte-database-username
@@ -23,6 +28,11 @@ services:
       - conexao-de-sorte-redis-database
       - conexao-de-sorte-jwt-issuer
       - conexao-de-sorte-jwt-jwks-uri
+      # Azure Key Vault secrets
+      - AZURE_KEYVAULT_ENDPOINT
+      - AZURE_CLIENT_ID
+      - AZURE_TENANT_ID
+      - AZURE_SUBSCRIPTION_ID
       - conexao-de-sorte-server-port
     networks:
       - conexao-network-swarm
@@ -97,3 +107,12 @@ secrets:
   DATABASE_PASSWORD:
     external: true
     name: DATABASE_PASSWORD
+  # Azure Key Vault secrets
+  AZURE_KEYVAULT_ENDPOINT:
+    external: true
+  AZURE_CLIENT_ID:
+    external: true
+  AZURE_TENANT_ID:
+    external: true
+  AZURE_SUBSCRIPTION_ID:
+    external: true
