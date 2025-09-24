@@ -215,7 +215,7 @@ jobs:
             fi
           done
 
-          # Verificar/criar diretórios específicos do Gateway
+          # Verificar/criar diretórios específicos do Auditoria-Compliance
           required_dirs=(
             "logs"
             "config"
@@ -251,7 +251,7 @@ jobs:
           # 1. Parar e remover serviços Docker Swarm
           echo "🔍 Verificando serviços Docker Swarm existentes..."
           if docker service ls --filter name="${STACK_NAME}_" --format "{{.Name}}" | grep -q "${STACK_NAME}_"; then
-            echo "⚠️ Encontrados serviços existentes do Gateway - removendo..."
+            echo "⚠️ Encontrados serviços existentes do Auditoria-Compliance - removendo..."
 
             # Escalar para 0 réplicas primeiro (graceful shutdown)
             for service in $(docker service ls --filter name="${STACK_NAME}_" --format "{{.Name}}"); do
@@ -296,7 +296,7 @@ jobs:
           echo "🔍 Verificando containers órfãos..."
           orphan_containers=$(docker ps -a --filter name="*auditoria*" --format "{{.ID}} {{.Names}}" | grep -E "(conexao-auditoria|auditoria)" || true)
           if [[ -n "$orphan_containers" ]]; then
-            echo "⚠️ Encontrados containers órfãos do Gateway:"
+            echo "⚠️ Encontrados containers órfãos do Auditoria-Compliance:"
             echo "$orphan_containers"
             echo "$orphan_containers" | while read container_id container_name; do
               if [[ -n "$container_id" ]]; then
@@ -308,7 +308,7 @@ jobs:
           fi
 
           # 4. Limpeza de imagens antigas (opcional - manter apenas algumas versões)
-          echo "🔍 Limpeza de imagens antigas do Gateway..."
+          echo "🔍 Limpeza de imagens antigas do Auditoria-Compliance..."
           old_images=$(docker images ghcr.io/wibson82/conexao-de-sorte-backend-auditoria-compliance/auditoria-compliance --format "{{.ID}} {{.Repository}}:{{.Tag}}" | tail -n +4 || true)
           if [[ -n "$old_images" ]]; then
             echo "⚠️ Removendo imagens antigas (mantendo 3 mais recentes):"
@@ -409,27 +409,22 @@ jobs:
             docker service ps "$service" --no-trunc --format "table {{.Name}}\t{{.Node}}\t{{.CurrentState}}\t{{.Error}}"
           done
 
-          # Health check específico do Gateway
+          # Health check específico do Auditoria-Compliance
           echo "🏥 Verificando saúde dos serviços..."
           auditoria_service="${STACK_NAME}_auditoria-compliance"
-
           if docker service ls --filter name="$auditoria_service" --format "{{.Name}}" | grep -q "$auditoria_service"; then
             echo "✅ Serviço $auditoria_service encontrado"
-
             # Aguardar serviço ficar saudável (timeout 180s)
             timeout=180
             echo "⏳ Aguardando serviço ficar saudável (timeout: ${timeout}s)..."
-
             start_time=$(date +%s)
             while true; do
               current_time=$(date +%s)
               elapsed=$((current_time - start_time))
-
               if [[ $elapsed -gt $timeout ]]; then
                 echo "⚠️ Timeout aguardando serviço ficar saudável"
                 break
               fi
-
               replicas=$(docker service ls --filter name="$auditoria_service" --format "{{.Replicas}}")
               if [[ "$replicas" =~ ^[1-9][0-9]*/[1-9][0-9]*$ ]] && [[ "${replicas%/*}" == "${replicas#*/}" ]]; then
                 echo "✅ Serviço $auditoria_service está saudável: $replicas"
@@ -442,7 +437,6 @@ jobs:
           else
             echo "❌ Serviço $auditoria_service não encontrado"
           fi
-
           echo "📊 Status final dos serviços:"
           docker service ls --filter name="${STACK_NAME}_*" --format "table {{.Name}}\t{{.Replicas}}\t{{.Image}}"
 
