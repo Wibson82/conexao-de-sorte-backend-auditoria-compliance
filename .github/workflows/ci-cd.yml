@@ -137,15 +137,9 @@ jobs:
             "conexao-de-sorte-redis-port"
             "conexao-de-sorte-redis-password"
             "conexao-de-sorte-redis-database"
-            "conexao-de-sorte-jwt-secret"
             "conexao-de-sorte-jwt-issuer"
             "conexao-de-sorte-jwt-jwks-uri"
-            "conexao-de-sorte-jwt-signing-key"
-            "conexao-de-sorte-jwt-verification-key"
             "conexao-de-sorte-server-port"
-            "conexao-de-sorte-cors-allowed-origins"
-            "conexao-de-sorte-cors-allow-credentials"
-            "conexao-de-sorte-encryption-master-key"
           )
 
           for secret_name in "${SECRETS_LIST[@]}"; do
@@ -164,41 +158,53 @@ jobs:
           done
 
       - name: 🔐 Create Docker Secrets
-        if: ${{ env.CONEXAO_DE_SORTE_ENCRYPTION_MASTER_KEY != '' && env.CONEXAO_DE_SORTE_REDIS_PASSWORD != '' && env.CONEXAO_DE_SORTE_JWT_SECRET != '' }}
+        if: ${{ env.CONEXAO_DE_SORTE_DATABASE_PASSWORD != '' && env.CONEXAO_DE_SORTE_REDIS_PASSWORD != '' && env.CONEXAO_DE_SORTE_JWT_ISSUER != '' }}
         run: |
           echo "Creating Docker secrets..."
 
-          # Cria o secret apenas se não existir
-          if ! docker secret ls --format "{{.Name}}" | grep -q "^ENCRYPTION_MASTER_KEY$"; then
-            printf "$CONEXAO_DE_SORTE_ENCRYPTION_MASTER_KEY" | docker secret create ENCRYPTION_MASTER_KEY -
-            echo "✅ Secret ENCRYPTION_MASTER_KEY criado."
-          else
-            echo "ℹ️ Secret ENCRYPTION_MASTER_KEY já existe, não será recriado."
+          # Remover serviços dependentes primeiro se existirem
+          if docker service ls --filter name="conexao-auditoria-compliance" --format "{{.Name}}" | grep -q "conexao-auditoria-compliance"; then
+            echo "⚠️ Removendo serviços dependentes do Auditoria-Compliance primeiro..."
+            docker service ls --filter name="conexao-auditoria-compliance" --format "{{.Name}}" | xargs -r docker service rm || true
+            sleep 5
           fi
 
-          if ! docker secret ls --format "{{.Name}}" | grep -q "^REDIS_PASSWORD$"; then
-            printf "$CONEXAO_DE_SORTE_REDIS_PASSWORD" | docker secret create REDIS_PASSWORD -
-            echo "✅ Secret REDIS_PASSWORD criado."
-          else
-            echo "ℹ️ Secret REDIS_PASSWORD já existe, não será recriado."
-          fi
+          # Lista de secrets para o Auditoria-Compliance (10 secrets)
+          declare -A SECRETS_MAP=(
+            ["conexao-de-sorte-database-r2dbc-url"]="$CONEXAO_DE_SORTE_DATABASE_R2DBC_URL"
+            ["conexao-de-sorte-database-username"]="$CONEXAO_DE_SORTE_DATABASE_USERNAME"
+            ["conexao-de-sorte-database-password"]="$CONEXAO_DE_SORTE_DATABASE_PASSWORD"
+            ["conexao-de-sorte-redis-host"]="$CONEXAO_DE_SORTE_REDIS_HOST"
+            ["conexao-de-sorte-redis-port"]="$CONEXAO_DE_SORTE_REDIS_PORT"
+            ["conexao-de-sorte-redis-password"]="$CONEXAO_DE_SORTE_REDIS_PASSWORD"
+            ["conexao-de-sorte-redis-database"]="$CONEXAO_DE_SORTE_REDIS_DATABASE"
+            ["conexao-de-sorte-jwt-issuer"]="$CONEXAO_DE_SORTE_JWT_ISSUER"
+            ["conexao-de-sorte-jwt-jwks-uri"]="$CONEXAO_DE_SORTE_JWT_JWKS_URI"
+            ["conexao-de-sorte-server-port"]="$CONEXAO_DE_SORTE_SERVER_PORT"
+          )
 
-          if ! docker secret ls --format "{{.Name}}" | grep -q "^JWT_SECRET$"; then
-            printf "$CONEXAO_DE_SORTE_JWT_SECRET" | docker secret create JWT_SECRET -
-            echo "✅ Secret JWT_SECRET criado."
-          else
-            echo "ℹ️ Secret JWT_SECRET já existe, não será recriado."
-          fi
+          # Processar cada secret
+          for secret_name in "${!SECRETS_MAP[@]}"; do
+            secret_value="${SECRETS_MAP[$secret_name]}"
+            docker_secret_name=$(echo "$secret_name" | tr '[:lower:]' '[:upper:]' | tr '-' '_')
 
-          echo "Docker secrets check/conclude."
+            if [[ -n "$secret_value" ]]; then
+              # Remover secret existente se necessário
+              if docker secret ls --format "{{.Name}}" | grep -q "^${docker_secret_name}$"; then
+                echo "⚠️ Removendo secret existente: $docker_secret_name"
+                docker secret rm "$docker_secret_name" || true
+                sleep 1
+              fi
 
-          # Secret do banco de dados
-          if ! docker secret ls --format "{{.Name}}" | grep -q "^conexao-de-sorte-database-password$"; then
-            printf "$CONEXAO_DE_SORTE_DATABASE_PASSWORD" | docker secret create conexao-de-sorte-database-password -
-            echo "✅ Secret conexao-de-sorte-database-password criado."
-          else
-            echo "ℹ️ Secret conexao-de-sorte-database-password já existe, não será recriado."
-          fi
+              # Criar novo secret
+              printf "$secret_value" | docker secret create "$docker_secret_name" -
+              echo "✅ Secret criado: $docker_secret_name"
+            else
+              echo "⚠️ Secret vazio ou não encontrado: $secret_name"
+            fi
+          done
+
+          echo "Docker secrets created."
 
       - name: 🔍 Preparar ambiente de deploy
         run: |
@@ -370,7 +376,7 @@ jobs:
             exit 1
           fi
 
-          if [[ -z "${CONEXAO_DE_SORTE_JWT_SECRET}" ]] || [[ -z "${CONEXAO_DE_SORTE_JWT_ISSUER}" ]]; then
+          if [[ -z "${CONEXAO_DE_SORTE_JWT_ISSUER}" ]] || [[ -z "${CONEXAO_DE_SORTE_JWT_JWKS_URI}" ]]; then
             echo "❌ Segredos JWT não configurados"
             exit 1
           fi
