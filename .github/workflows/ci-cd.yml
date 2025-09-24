@@ -192,6 +192,14 @@ jobs:
 
           echo "Docker secrets check/conclude."
 
+          # Secret do banco de dados
+          if ! docker secret ls --format "{{.Name}}" | grep -q "^conexao-de-sorte-database-password$"; then
+            printf "$CONEXAO_DE_SORTE_DATABASE_PASSWORD" | docker secret create conexao-de-sorte-database-password -
+            echo "✅ Secret conexao-de-sorte-database-password criado."
+          else
+            echo "ℹ️ Secret conexao-de-sorte-database-password já existe, não será recriado."
+          fi
+
       - name: 🔍 Preparar ambiente de deploy
         run: |
           echo "🔍 Preparando ambiente para deploy do Auditoria-Compliance..."
