@@ -194,7 +194,7 @@ jobs:
 
       - name: 🔍 Preparar ambiente de deploy
         run: |
-          echo "🔍 Preparando ambiente para deploy do Gateway..."
+          echo "🔍 Preparando ambiente para deploy do Auditoria-Compliance..."
 
           # Verificar arquivos necessários
           echo "🔍 Verificando arquivos necessários..."
@@ -234,11 +234,11 @@ jobs:
 
       - name: 🧹 Limpeza completa de recursos antigos
         run: |
-          echo "🧹 Iniciando limpeza completa de recursos do Gateway..."
+          echo "🧹 Iniciando limpeza completa de recursos do Auditoria-Compliance..."
 
           # Configurar variáveis de ambiente
           export COMPOSE_PROJECT_NAME="${STACK_NAME}"
-          SERVICE_NAME="${STACK_NAME}_gateway"
+          SERVICE_NAME="${STACK_NAME}_auditoria-compliance"
 
           # 1. Parar e remover serviços Docker Swarm
           echo "🔍 Verificando serviços Docker Swarm existentes..."
@@ -286,7 +286,7 @@ jobs:
 
           # 3. Limpeza de containers órfãos (se existirem)
           echo "🔍 Verificando containers órfãos..."
-          orphan_containers=$(docker ps -a --filter name="*gateway*" --format "{{.ID}} {{.Names}}" | grep -E "(conexao-gateway|gateway)" || true)
+          orphan_containers=$(docker ps -a --filter name="*auditoria*" --format "{{.ID}} {{.Names}}" | grep -E "(conexao-auditoria|auditoria)" || true)
           if [[ -n "$orphan_containers" ]]; then
             echo "⚠️ Encontrados containers órfãos do Gateway:"
             echo "$orphan_containers"
@@ -301,7 +301,7 @@ jobs:
 
           # 4. Limpeza de imagens antigas (opcional - manter apenas algumas versões)
           echo "🔍 Limpeza de imagens antigas do Gateway..."
-          old_images=$(docker images ghcr.io/wibson82/conexao-de-sorte-backend-gateway/gateway --format "{{.ID}} {{.Repository}}:{{.Tag}}" | tail -n +4 || true)
+          old_images=$(docker images ghcr.io/wibson82/conexao-de-sorte-backend-auditoria-compliance/auditoria-compliance --format "{{.ID}} {{.Repository}}:{{.Tag}}" | tail -n +4 || true)
           if [[ -n "$old_images" ]]; then
             echo "⚠️ Removendo imagens antigas (mantendo 3 mais recentes):"
             echo "$old_images" | while read image_id image_name; do
@@ -345,7 +345,7 @@ jobs:
 
       - name: 🚀 Deploy to Docker Swarm
         run: |
-          echo "🚀 Iniciando deploy do Gateway no Docker Swarm..."
+          echo "🚀 Iniciando deploy do Auditoria-Compliance no Docker Swarm..."
 
           # Verificar se temos os segredos mínimos necessários
           if [[ -z "${CONEXAO_DE_SORTE_DATABASE_R2DBC_URL}" ]] || [[ -z "${CONEXAO_DE_SORTE_DATABASE_USERNAME}" ]] || [[ -z "${CONEXAO_DE_SORTE_DATABASE_PASSWORD}" ]]; then
@@ -374,7 +374,7 @@ jobs:
 
           # Pull da imagem mais recente
           echo "📥 Fazendo pull da imagem mais recente..."
-          docker pull ghcr.io/wibson82/conexao-de-sorte-backend-gateway/gateway:latest || echo "⚠️ Falha no pull - usando imagem local"
+          docker pull ghcr.io/wibson82/conexao-de-sorte-backend-auditoria-compliance:latest || echo "⚠️ Falha no pull - usando imagem local"
 
           # Deploy usando Docker Stack
           echo "🔄 Executando deploy stack..."
@@ -391,22 +391,22 @@ jobs:
           sleep 30
 
           # Verificar status dos serviços
-          echo "📊 Status dos serviços do Gateway:"
+          echo "📊 Status dos serviços do Auditoria-Compliance:"
           docker service ls --filter name="${STACK_NAME}_*" --format "table {{.Name}}\t{{.Replicas}}\t{{.Image}}\t{{.Ports}}"
 
           # Verificar tarefas dos serviços (para debug)
           echo "📋 Tarefas dos serviços:"
-          for service in $(docker service ls --filter name="${STACK_NAME}_*" --format "{{.Name}}"); do
+          for service in $(docker service ls --filter name="${STACK_NAME}_*" --format "{{.Name}}" ); do
             echo "=== $service ==="
             docker service ps "$service" --no-trunc --format "table {{.Name}}\t{{.Node}}\t{{.CurrentState}}\t{{.Error}}"
           done
 
           # Health check específico do Gateway
           echo "🏥 Verificando saúde dos serviços..."
-          gateway_service="${STACK_NAME}_gateway"
+          auditoria_service="${STACK_NAME}_auditoria-compliance"
 
-          if docker service ls --filter name="$gateway_service" --format "{{.Name}}" | grep -q "$gateway_service"; then
-            echo "✅ Serviço $gateway_service encontrado"
+          if docker service ls --filter name="$auditoria_service" --format "{{.Name}}" | grep -q "$auditoria_service"; then
+            echo "✅ Serviço $auditoria_service encontrado"
 
             # Aguardar serviço ficar saudável (timeout 180s)
             timeout=180
@@ -422,9 +422,9 @@ jobs:
                 break
               fi
 
-              replicas=$(docker service ls --filter name="$gateway_service" --format "{{.Replicas}}")
+              replicas=$(docker service ls --filter name="$auditoria_service" --format "{{.Replicas}}")
               if [[ "$replicas" =~ ^[1-9][0-9]*/[1-9][0-9]*$ ]] && [[ "${replicas%/*}" == "${replicas#*/}" ]]; then
-                echo "✅ Serviço $gateway_service está saudável: $replicas"
+                echo "✅ Serviço $auditoria_service está saudável: $replicas"
                 break
               else
                 echo "⏳ Aguardando... ($elapsed/${timeout}s) - Réplicas: $replicas"
@@ -432,7 +432,7 @@ jobs:
               fi
             done
           else
-            echo "❌ Serviço $gateway_service não encontrado"
+            echo "❌ Serviço $auditoria_service não encontrado"
           fi
 
           echo "📊 Status final dos serviços:"
@@ -448,20 +448,20 @@ jobs:
           elapsed=0
 
           while [ $elapsed -lt $timeout ]; do
-            echo "🔎 Verificando containers do Gateway (${elapsed}/${timeout}s)..."
+            echo "🔎 Verificando containers do Auditoria-Compliance (${elapsed}/${timeout}s)..."
 
-            # Buscar container do gateway que está rodando
-            gateway_container=$(docker ps --filter "name=conexao-gateway" --filter "status=running" --format "{{.Names}}\t{{.Status}}" | head -1)
+            # Buscar container do auditoria-compliance que está rodando
+            auditoria_container=$(docker ps --filter "name=conexao-auditoria" --filter "status=running" --format "{{.Names}}\t{{.Status}}" | head -1)
 
-            if [[ -n "$gateway_container" ]]; then
-              echo "📊 Container encontrado: $gateway_container"
+            if [[ -n "$auditoria_container" ]]; then
+              echo "📊 Container encontrado: $auditoria_container"
 
               # Verificar se tem health status
-              container_name=$(echo "$gateway_container" | cut -f1)
+              container_name=$(echo "$auditoria_container" | cut -f1)
               health_status=$(docker inspect --format='{{.State.Health.Status}}' "$container_name" 2>/dev/null || echo "no-health-check")
 
               if [[ "$health_status" == "healthy" ]]; then
-                echo "✅ Container do Gateway está healthy no runner"
+                echo "✅ Container do Auditoria-Compliance está healthy no runner"
                 echo "🎯 Deploy confirmado com sucesso!"
                 exit 0
               elif [[ "$health_status" == "no-health-check" ]]; then
@@ -480,16 +480,16 @@ jobs:
                 echo "⚠️ Container health status: $health_status"
               fi
             else
-              echo "⚠️ Nenhum container do Gateway encontrado rodando"
+              echo "⚠️ Nenhum container do Auditoria-Compliance encontrado rodando"
             fi
 
             sleep "$interval"
             elapsed=$((elapsed + interval))
           done
 
-          echo "❌ Timeout: Gateway não está healthy após ${timeout}s"
+          echo "❌ Timeout: Auditoria-Compliance não está healthy após ${timeout}s"
           echo "📋 Listando containers atuais:"
-          docker ps --filter "name=conexao" --format "table {{.Names}}\t{{.Status}}\t{{.Ports}}"
+          docker ps --filter "name=conexao-auditoria" --format "table {{.Names}}\t{{.Status}}\t{{.Ports}}"
           exit 1
 
   cleanup-artifacts:
