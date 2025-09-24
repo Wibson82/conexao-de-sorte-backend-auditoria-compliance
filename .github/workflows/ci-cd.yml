@@ -414,10 +414,10 @@ jobs:
           auditoria_service="${STACK_NAME}_auditoria-compliance"
           if docker service ls --filter name="$auditoria_service" --format "{{.Name}}" | grep -q "$auditoria_service"; then
             echo "✅ Serviço $auditoria_service encontrado"
-            # Aguardar serviço ficar saudável (timeout 180s)
             timeout=180
             echo "⏳ Aguardando serviço ficar saudável (timeout: ${timeout}s)..."
             start_time=$(date +%s)
+            healthy=0
             while true; do
               current_time=$(date +%s)
               elapsed=$((current_time - start_time))
@@ -426,14 +426,34 @@ jobs:
                 break
               fi
               replicas=$(docker service ls --filter name="$auditoria_service" --format "{{.Replicas}}")
-              if [[ "$replicas" =~ ^[1-9][0-9]*/[1-9][0-9]*$ ]] && [[ "${replicas%/*}" == "${replicas#*/}" ]]; then
-                echo "✅ Serviço $auditoria_service está saudável: $replicas"
-                break
+              # Busca o container mais recente do serviço
+              container_id=$(docker ps --filter "name=${auditoria_service}" --format "{{.ID}}" | head -1)
+              if [[ -n "$container_id" ]]; then
+                health_status=$(docker inspect --format='{{.State.Health.Status}}' "$container_id" 2>/dev/null || echo "no-health-check")
+                echo "⏳ ($elapsed/${timeout}s) - Réplicas: $replicas - Health: $health_status"
+                if [[ "$health_status" == "healthy" ]]; then
+                  echo "✅ Container está healthy!"
+                  healthy=1
+                  break
+                fi
+                # Mostra logs do container se estiver demorando
+                if (( elapsed > 60 )); then
+                  echo "--- Últimos logs do container $container_id ---"
+                  docker logs --tail 20 "$container_id" || true
+                  echo "----------------------------------------------"
+                fi
               else
-                echo "⏳ Aguardando... ($elapsed/${timeout}s) - Réplicas: $replicas"
-                sleep 10
+                echo "⏳ ($elapsed/${timeout}s) - Nenhum container encontrado para $auditoria_service"
               fi
+              sleep 10
             done
+            if [[ $healthy -ne 1 ]]; then
+              echo "❌ Serviço não ficou healthy. Exibindo logs do container mais recente:"
+              last_container=$(docker ps -a --filter "name=${auditoria_service}" --format "{{.ID}}" | head -1)
+              if [[ -n "$last_container" ]]; then
+                docker logs --tail 50 "$last_container" || true
+              fi
+            fi
           else
             echo "❌ Serviço $auditoria_service não encontrado"
           fi
@@ -451,28 +471,21 @@ jobs:
 
           while [ $elapsed -lt $timeout ]; do
             echo "🔎 Verificando containers do Auditoria-Compliance (${elapsed}/${timeout}s)..."
-
-            # Buscar container do auditoria-compliance que está rodando
-            auditoria_container=$(docker ps --filter "name=conexao-auditoria" --filter "status=running" --format "{{.Names}}\t{{.Status}}" | head -1)
-
-            if [[ -n "$auditoria_container" ]]; then
-              echo "📊 Container encontrado: $auditoria_container"
-
-              # Verificar se tem health status
-              container_name=$(echo "$auditoria_container" | cut -f1)
-              health_status=$(docker inspect --format='{{.State.Health.Status}}' "$container_name" 2>/dev/null || echo "no-health-check")
-
+            # Buscar container mais recente do auditoria-compliance
+            container_id=$(docker ps --filter "name=conexao-auditoria" --format "{{.ID}}" | head -1)
+            if [[ -n "$container_id" ]]; then
+              container_name=$(docker inspect --format='{{.Name}}' "$container_id" | sed 's|/||')
+              health_status=$(docker inspect --format='{{.State.Health.Status}}' "$container_id" 2>/dev/null || echo "no-health-check")
+              echo "📊 Container encontrado: $container_name ($container_id) - Health: $health_status"
               if [[ "$health_status" == "healthy" ]]; then
                 echo "✅ Container do Auditoria-Compliance está healthy no runner"
                 echo "🎯 Deploy confirmado com sucesso!"
                 exit 0
               elif [[ "$health_status" == "no-health-check" ]]; then
                 echo "⚠️ Container sem health check configurado, verificando se está rodando..."
-                # Se não tem health check, verificar se o container está rodando há pelo menos 30s
-                uptime=$(docker inspect --format='{{.State.StartedAt}}' "$container_name" | xargs -I {} date -d {} +%s)
+                uptime=$(docker inspect --format='{{.State.StartedAt}}' "$container_id" | xargs -I {} date -d {} +%s)
                 current_time=$(date +%s)
                 running_time=$((current_time - uptime))
-
                 if [ $running_time -gt 30 ]; then
                   echo "✅ Container rodando há ${running_time}s - considerado estável"
                   echo "🎯 Deploy confirmado com sucesso!"
@@ -480,18 +493,28 @@ jobs:
                 fi
               else
                 echo "⚠️ Container health status: $health_status"
+                if (( elapsed > 60 )); then
+                  echo "--- Últimos logs do container $container_id ---"
+                  docker logs --tail 20 "$container_id" || true
+                  echo "----------------------------------------------"
+                fi
               fi
             else
               echo "⚠️ Nenhum container do Auditoria-Compliance encontrado rodando"
             fi
-
             sleep "$interval"
             elapsed=$((elapsed + interval))
           done
-
           echo "❌ Timeout: Auditoria-Compliance não está healthy após ${timeout}s"
           echo "📋 Listando containers atuais:"
           docker ps --filter "name=conexao-auditoria" --format "table {{.Names}}\t{{.Status}}\t{{.Ports}}"
+          # Exibe logs do container mais recente
+          last_container=$(docker ps -a --filter "name=conexao-auditoria" --format "{{.ID}}" | head -1)
+          if [[ -n "$last_container" ]]; then
+            echo "--- Últimos logs do container $last_container ---"
+            docker logs --tail 50 "$last_container" || true
+            echo "----------------------------------------------"
+          fi
           exit 1
 
   cleanup-artifacts:
