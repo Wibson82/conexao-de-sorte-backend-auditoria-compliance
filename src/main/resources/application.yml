@@ -67,7 +67,8 @@ spring:
   flyway:
     enabled: true
     # Secret JDBC base: jdbc:mysql://conexao-mysql:3306 + parâmetros específicos
-    url: ${conexao-de-sorte-database-jdbc-url}/conexao_audit?useSSL=true&allowPublicKeyRetrieval=false
+    # createDatabaseIfNotExist=true permite criar o banco automaticamente
+    url: ${conexao-de-sorte-database-jdbc-url}/conexao_audit?useSSL=true&allowPublicKeyRetrieval=false&createDatabaseIfNotExist=true
     user: ${conexao-de-sorte-database-username}
     password: ${conexao-de-sorte-database-password}
     locations: classpath:db/migration
