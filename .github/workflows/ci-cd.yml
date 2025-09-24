@@ -183,22 +183,38 @@ jobs:
             ["conexao-de-sorte-server-port"]="$CONEXAO_DE_SORTE_SERVER_PORT"
           )
 
+          # Função para criar secret apenas se não existir
+          create_secret_if_not_exists() {
+            local secret_name="$1"
+            local secret_value="$2"
+
+            if docker secret ls --format "{{.Name}}" | grep -q "^${secret_name}$"; then
+              echo "ℹ️ Secret ${secret_name} já existe - reutilizando"
+            else
+              printf "$secret_value" | docker secret create "$secret_name" -
+              echo "✅ Secret ${secret_name} criado"
+            fi
+          }
+
           # Processar cada secret
           for secret_name in "${!SECRETS_MAP[@]}"; do
             secret_value="${SECRETS_MAP[$secret_name]}"
-            docker_secret_name=$(echo "$secret_name" | tr '[:lower:]' '[:upper:]' | tr '-' '_')
 
             if [[ -n "$secret_value" ]]; then
-              # Remover secret existente se necessário
-              if docker secret ls --format "{{.Name}}" | grep -q "^${docker_secret_name}$"; then
-                echo "⚠️ Removendo secret existente: $docker_secret_name"
-                docker secret rm "$docker_secret_name" || true
-                sleep 1
-              fi
+              # Criar secrets com nomes originais (para compatibilidade com outros serviços)
+              create_secret_if_not_exists "$secret_name" "$secret_value"
 
-              # Criar novo secret
-              printf "$secret_value" | docker secret create "$docker_secret_name" -
-              echo "✅ Secret criado: $docker_secret_name"
+              # Também criar com nomes padronizados para docker-compose.yml
+              docker_secret_name=""
+              case "$secret_name" in
+                "conexao-de-sorte-database-password") docker_secret_name="DATABASE_PASSWORD" ;;
+                "conexao-de-sorte-redis-password") docker_secret_name="REDIS_PASSWORD" ;;
+                "conexao-de-sorte-jwt-issuer") docker_secret_name="JWT_ISSUER" ;;
+              esac
+
+              if [[ -n "$docker_secret_name" ]]; then
+                create_secret_if_not_exists "$docker_secret_name" "$secret_value"
+              fi
             else
               echo "⚠️ Secret vazio ou não encontrado: $secret_name"
             fi
@@ -386,9 +402,21 @@ jobs:
           # Configurar variáveis de ambiente para o deploy
           export COMPOSE_PROJECT_NAME="${STACK_NAME}"
 
-          # Pull da imagem mais recente
-          echo "📥 Fazendo pull da imagem mais recente..."
-          docker pull ghcr.io/wibson82/conexao-de-sorte-backend-auditoria-compliance:latest || echo "⚠️ Falha no pull - usando imagem local"
+          # Tentar pull da imagem mais recente
+          echo "📥 Tentando pull da imagem mais recente..."
+          if docker pull ghcr.io/wibson82/conexao-de-sorte-backend-auditoria-compliance:latest; then
+            echo "✅ Pull da imagem realizado com sucesso"
+          else
+            echo "⚠️ Falha no pull - tentando build local..."
+            if [[ -f "Dockerfile" ]]; then
+              echo "🔨 Fazendo build da imagem localmente..."
+              docker build -t ghcr.io/wibson82/conexao-de-sorte-backend-auditoria-compliance:latest .
+              echo "✅ Build local concluído"
+            else
+              echo "❌ Dockerfile não encontrado - não é possível fazer build"
+              exit 1
+            fi
+          fi
 
           # Deploy usando Docker Stack
           echo "🔄 Executando deploy stack..."
