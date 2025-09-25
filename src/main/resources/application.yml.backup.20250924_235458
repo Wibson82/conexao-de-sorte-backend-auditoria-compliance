@@ -1,0 +1,126 @@
+spring:
+  application:
+    name: conexao-auditoria-compliance
+    
+  profiles:
+    default: prod
+    active: prod
+    
+  main:
+    allow-bean-definition-overriding: true
+    
+  # Config import para Azure Key Vault secrets
+  config:
+    import:
+      - optional:configtree:/etc/secrets/azure/
+      - optional:configtree:/mnt/secrets/
+      - optional:file:./secrets.properties
+      
+  # Azure Key Vault (configuração movida para application-azure.yml)
+  cloud:
+    azure:
+      keyvault:
+        secret:
+          enabled: ${AZURE_KEYVAULT_ENABLED:false}  # Apenas habilitado no perfil azure
+
+  # OAuth2 Resource Server - JWT validation via JWKS
+  security:
+    oauth2:
+      resourceserver:
+        jwt:
+          jwk-set-uri: "${conexao-de-sorte-jwt-jwks-uri:https://auth.conexao-de-sorte.com.br/.well-known/jwks.json}"
+          issuer-uri: "${conexao-de-sorte-jwt-issuer:https://auth.conexao-de-sorte.com.br}"
+
+  # R2DBC Configuration (Spring Boot 3.5.5 compatible)
+  r2dbc:
+    # Secret base: r2dbc:mysql://conexao-mysql:3306 + parâmetros específicos
+    url: ${conexao-de-sorte-database-r2dbc-url:r2dbc:mysql://conexao-mysql:3306}/conexao_audit?useSSL=true&allowPublicKeyRetrieval=false
+    username: ${conexao-de-sorte-database-username:conexao_user}
+    password: ${conexao-de-sorte-database-password:conexao_password}
+    pool:
+      enabled: true
+      initial-size: 1
+      max-size: 10
+      max-idle-time: 30m
+      validation-query: "SELECT 1"
+      max-acquire-time: 15s
+      max-create-connection-time: 10s
+      max-life-time: 60m
+
+  # Redis Configuration (Spring Boot 3.5.5)
+  data:
+    redis:
+      host: ${conexao-de-sorte-redis-host:conexao-redis}
+      port: ${conexao-de-sorte-redis-port:6379}
+      password: ${conexao-de-sorte-redis-password:}
+      database: 6
+      timeout: 3000ms
+      connect-timeout: 10000ms
+      lettuce:
+        pool:
+          enabled: true
+          max-active: 8
+          max-idle: 4
+          min-idle: 0
+
+  # Flyway for database migrations
+  flyway:
+    enabled: true
+    # Secret JDBC base: jdbc:mysql://conexao-mysql:3306 + parâmetros específicos
+    # createDatabaseIfNotExist=true permite criar o banco automaticamente
+    url: ${conexao-de-sorte-database-jdbc-url:jdbc:mysql://conexao-mysql:3306}/conexao_audit?useSSL=true&allowPublicKeyRetrieval=false&createDatabaseIfNotExist=true
+    user: ${conexao-de-sorte-database-username:conexao_user}
+    password: ${conexao-de-sorte-database-password:conexao_password}
+    locations: classpath:db/migration
+    baseline-on-migrate: true
+    validate-on-migrate: false
+
+server:
+  port: ${SERVER_PORT:8085}
+  shutdown: graceful
+  
+  # SSL/TLS Configuration
+  ssl:
+    enabled: ${conexao-de-sorte-ssl-enabled:false}
+    key-store: ${conexao-de-sorte-ssl-keystore-path:}
+    key-store-password: ${conexao-de-sorte-ssl-keystore-password:}
+    key-store-type: PKCS12
+    
+  error:
+    include-message: never
+    include-binding-errors: never
+    include-stacktrace: never
+    include-exception: false
+
+# Management endpoints (Spring Boot 3.5.5)
+management:
+  endpoints:
+    web:
+      exposure:
+        include: health,info,metrics,prometheus
+      base-path: /actuator
+  endpoint:
+    health:
+      show-details: when-authorized
+  health:
+    redis:
+      enabled: true
+  prometheus:
+    metrics:
+      export:
+        enabled: true
+        step: PT1M
+
+# Axon Framework configuration
+axon:
+  axonserver:
+    enabled: false
+    suppress-download-message: true
+
+# Logging configuration
+logging:
+  level:
+    root: INFO
+    "[br.tec.facilitaservicos.auditoria]": DEBUG
+    "[org.springframework.security]": INFO
+    "[org.springframework.r2dbc]": INFO

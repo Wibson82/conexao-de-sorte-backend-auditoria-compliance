@@ -1,0 +1,118 @@
+services:
+  auditoria-compliance:
+    image: ${AUDITORIA_COMPLIANCE_IMAGE:-ghcr.io/wibson82/conexao-de-sorte-backend-auditoria-compliance:latest}
+    environment:
+      SPRING_PROFILES_ACTIVE: "production"
+      AUDITORIA_LOG_LEVEL: "INFO"
+      LOGGING_LEVEL_ROOT: "INFO"
+      # Database Configuration
+      DATABASE_HOST: "conexao-mysql"
+      DATABASE_PORT: "3306"
+      DATABASE_NAME: "conexao_de_sorte"
+      DATABASE_USERNAME: "conexao"
+      # Secrets via Docker Secrets
+      DATABASE_PASSWORD_FILE: "/run/secrets/DATABASE_PASSWORD"
+      # Azure Key Vault configuration
+      AZURE_KEYVAULT_ENDPOINT_FILE: "/run/secrets/AZURE_KEYVAULT_ENDPOINT"
+      AZURE_CLIENT_ID_FILE: "/run/secrets/AZURE_CLIENT_ID"
+      AZURE_TENANT_ID_FILE: "/run/secrets/AZURE_TENANT_ID"
+      AZURE_SUBSCRIPTION_ID_FILE: "/run/secrets/AZURE_SUBSCRIPTION_ID"
+    secrets:
+      - conexao-de-sorte-database-r2dbc-url
+      - conexao-de-sorte-database-username
+      - conexao-de-sorte-database-password
+      - DATABASE_PASSWORD
+      - conexao-de-sorte-redis-host
+      - conexao-de-sorte-redis-port
+      - conexao-de-sorte-redis-password
+      - conexao-de-sorte-redis-database
+      - conexao-de-sorte-jwt-issuer
+      - conexao-de-sorte-jwt-jwks-uri
+      # Azure Key Vault secrets
+      - AZURE_KEYVAULT_ENDPOINT
+      - AZURE_CLIENT_ID
+      - AZURE_TENANT_ID
+      - AZURE_SUBSCRIPTION_ID
+      - conexao-de-sorte-server-port
+    networks:
+      - conexao-network-swarm
+    volumes:
+      - auditoria-logs:/app/logs
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8093/actuator/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 5
+      start_period: 60s
+    deploy:
+      replicas: 1
+      restart_policy:
+        condition: on-failure
+      resources:
+        limits:
+          memory: 1G
+        reservations:
+          memory: 512M
+    # ==========================================================================
+    # 🏷️ LABELS PARA INTEGRAÇÃO COM GATEWAY
+    # ==========================================================================
+    labels:
+      # Habilitar descoberta pelo Gateway
+      - "traefik.enable=false"
+      - "gateway.enable=true"
+      - "gateway.service.name=conexao-auditoria"
+      - "gateway.service.port=8093"
+      - "gateway.service.path=/rest/auditoria"
+      - "gateway.health.path=/actuator/health"
+
+      # Network para comunicação interna
+      - "com.docker.network.name=conexao-network-swarm"
+
+      # Metadata do serviço
+      - "org.opencontainers.image.title=Conexão de Sorte - Auditoria & Compliance"
+      - "org.opencontainers.image.description=Microserviço de auditoria, logs e compliance"
+      - "org.opencontainers.image.version=1.0.0"
+      - "microservice.type=audit"
+      - "microservice.category=compliance"
+
+volumes:
+  auditoria-logs:
+
+networks:
+  conexao-network-swarm:
+    name: conexao-network-swarm
+    external: true
+
+secrets:
+  conexao-de-sorte-database-r2dbc-url:
+    external: true
+  conexao-de-sorte-database-username:
+    external: true
+  conexao-de-sorte-database-password:
+    external: true
+  conexao-de-sorte-redis-host:
+    external: true
+  conexao-de-sorte-redis-port:
+    external: true
+  conexao-de-sorte-redis-password:
+    external: true
+  conexao-de-sorte-redis-database:
+    external: true
+  conexao-de-sorte-jwt-issuer:
+    external: true
+  conexao-de-sorte-jwt-jwks-uri:
+    external: true
+  conexao-de-sorte-server-port:
+    external: true
+  DATABASE_PASSWORD:
+    external: true
+    name: DATABASE_PASSWORD
+  # Azure Key Vault secrets
+  AZURE_KEYVAULT_ENDPOINT:
+    external: true
+  AZURE_CLIENT_ID:
+    external: true
+  AZURE_TENANT_ID:
+    external: true
+  AZURE_SUBSCRIPTION_ID:
+    external: true
