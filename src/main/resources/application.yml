@@ -34,9 +34,9 @@ spring:
   # R2DBC Configuration (Spring Boot 3.5.5 compatible)
   r2dbc:
     # Secret base: r2dbc:mysql://conexao-mysql:3306 + parâmetros específicos
-    url: ${conexao-de-sorte-database-r2dbc-url}/conexao_audit?useSSL=true&allowPublicKeyRetrieval=false
-    username: ${conexao-de-sorte-database-username}
-    password: ${conexao-de-sorte-database-password}
+    url: ${conexao-de-sorte-database-r2dbc-url:r2dbc:mysql://conexao-mysql:3306}/conexao_audit?useSSL=true&allowPublicKeyRetrieval=false
+    username: ${conexao-de-sorte-database-username:conexao_user}
+    password: ${conexao-de-sorte-database-password:conexao_password}
     pool:
       enabled: true
       initial-size: 1
