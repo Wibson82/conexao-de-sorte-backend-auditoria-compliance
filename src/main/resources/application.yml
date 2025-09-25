@@ -52,7 +52,7 @@ spring:
     redis:
       host: ${conexao-de-sorte-redis-host:conexao-redis}
       port: ${conexao-de-sorte-redis-port:6379}
-      password: ${conexao-de-sorte-redis-password:senha_teste}
+      password: ${conexao-de-sorte-redis-password:}
       database: 6
       timeout: 3000ms
       connect-timeout: 10000ms
@@ -68,9 +68,9 @@ spring:
     enabled: true
     # Secret JDBC base: jdbc:mysql://conexao-mysql:3306 + parâmetros específicos
     # createDatabaseIfNotExist=true permite criar o banco automaticamente
-    url: ${conexao-de-sorte-database-jdbc-url}/conexao_audit?useSSL=true&allowPublicKeyRetrieval=false&createDatabaseIfNotExist=true
-    user: ${conexao-de-sorte-database-username}
-    password: ${conexao-de-sorte-database-password}
+    url: ${conexao-de-sorte-database-jdbc-url:jdbc:mysql://conexao-mysql:3306}/conexao_audit?useSSL=true&allowPublicKeyRetrieval=false&createDatabaseIfNotExist=true
+    user: ${conexao-de-sorte-database-username:conexao_user}
+    password: ${conexao-de-sorte-database-password:conexao_password}
     locations: classpath:db/migration
     baseline-on-migrate: true
     validate-on-migrate: false
@@ -83,7 +83,7 @@ server:
   ssl:
     enabled: ${conexao-de-sorte-ssl-enabled:false}
     key-store: ${conexao-de-sorte-ssl-keystore-path:}
-    key-store-password: ${conexao-de-sorte-redis-password:senha_teste}
+    key-store-password: ${conexao-de-sorte-ssl-keystore-password:}
     key-store-type: PKCS12
     
   error:
